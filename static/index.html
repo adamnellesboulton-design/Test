@@ -822,7 +822,7 @@ function closeUpload() {
 function addFiles(files) {
   files.forEach(f => {
     if (!f.name.endsWith(".txt")) return;
-    queuedFiles.push({ file: f, title: "", date: "" });
+    queuedFiles.push({ file: f, title: "" });
   });
   renderQueuedFiles();
   document.getElementById("upload-submit-btn").disabled = queuedFiles.length === 0;
@@ -842,10 +842,6 @@ function renderQueuedFiles() {
                placeholder="Episode title (optional)"
                value="${escHtml(item.title)}"
                oninput="queuedFiles[${i}].title=this.value"/>
-        <input type="date"
-               class="date-input"
-               value="${item.date}"
-               oninput="queuedFiles[${i}].date=this.value"/>
       </div>
     </div>
   `).join("");
@@ -867,7 +863,6 @@ async function submitUpload() {
   queuedFiles.forEach(item => {
     fd.append("files[]", item.file, item.file.name);
     fd.append("title[]", item.title || item.file.name.replace(/\.txt$/i, ""));
-    fd.append("episode_date[]", item.date || "");
   });
 
   try {
@@ -1041,7 +1036,7 @@ function renderFVChart(fv) {
 
   const labels = fv.buckets.map(b => b.label);
   const pcts   = fv.buckets.map(b => b.pct);
-  const colors = fv.buckets.map(b => b.n === 0 ? "#0f3460" : "#e94560cc");
+  const colors = fv.buckets.map(() => "#e94560cc");
 
   fvChart = new Chart(ctx, {
     type: "bar",
