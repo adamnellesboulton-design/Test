@@ -51,9 +51,6 @@ class FairValueResult:
     mean: float
     variance: float
     overdispersed: bool             # True → negative-binomial may be better
-    # Median episode duration (minutes) used as normalization reference.
-    # None means raw counts were used (no duration data available).
-    reference_minutes: Optional[float] = None
 
     # P(mentions == n) for n = 0..MAX_BUCKET, key MAX_BUCKET means "≥ MAX_BUCKET"
     poisson_pmf:    dict[int, float]
@@ -66,6 +63,11 @@ class FairValueResult:
     # Negative-binomial PMF (if scipy available and data is overdispersed)
     negbin_pmf:     Optional[dict[int, float]]
     negbin_sf:      Optional[dict[int, float]]
+
+    # Median episode duration (minutes) used as normalization reference.
+    # None means raw counts were used (no duration data available).
+    # Must come last — it is the only field with a default value.
+    reference_minutes: Optional[float] = None
 
 
 def calculate_fair_value(
