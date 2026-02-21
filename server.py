@@ -165,17 +165,29 @@ def api_search():
         "last_100": result.avg_last_100,
     }
 
+    def _r(v, digits=4):
+        return round(v, digits) if v is not None else None
+
+    averages_per_min = {
+        "last_1":   _r(result.avg_pm_last_1),
+        "last_5":   _r(result.avg_pm_last_5),
+        "last_20":  _r(result.avg_pm_last_20),
+        "last_50":  _r(result.avg_pm_last_50),
+        "last_100": _r(result.avg_pm_last_100),
+    }
+
     fv = calculate_fair_value(result, lookback=lookback)
     rec_pmf = recommended_pmf(fv)
     rec_sf  = recommended_sf(fv)
 
     fair_value = {
-        "lambda":     round(fv.lambda_estimate, 4),
-        "mean":       round(fv.mean, 4),
-        "std_dev":    round(math.sqrt(fv.variance), 4),
-        "model":      ("neg-binomial" if fv.overdispersed and fv.negbin_pmf
-                       else ("empirical" if fv.lookback_episodes >= 10 else "poisson")),
+        "lambda":            round(fv.lambda_estimate, 4),
+        "mean":              round(fv.mean, 4),
+        "std_dev":           round(math.sqrt(fv.variance), 4),
+        "model":             ("neg-binomial" if fv.overdispersed and fv.negbin_pmf
+                              else ("empirical" if fv.lookback_episodes >= 10 else "poisson")),
         "lookback_episodes": fv.lookback_episodes,
+        "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [
             {
                 "n":         k,
@@ -189,10 +201,11 @@ def api_search():
     }
 
     return jsonify({
-        "keyword":    keyword,
-        "episodes":   episodes,
-        "averages":   averages,
-        "fair_value": fair_value,
+        "keyword":          keyword,
+        "episodes":         episodes,
+        "averages":         averages,
+        "averages_per_min": averages_per_min,
+        "fair_value":       fair_value,
     })
 
 

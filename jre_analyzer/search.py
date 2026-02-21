@@ -37,12 +37,19 @@ class SearchResult:
     keyword: str
     episodes: list[EpisodeResult] = field(default_factory=list)
 
-    # Rolling averages (None if not enough data)
+    # Rolling averages of raw mention count (None if not enough data)
     avg_last_1:   Optional[float] = None
     avg_last_5:   Optional[float] = None
     avg_last_20:  Optional[float] = None
     avg_last_50:  Optional[float] = None
     avg_last_100: Optional[float] = None
+
+    # Rolling averages of per-minute mention rate (duration-normalized)
+    avg_pm_last_1:   Optional[float] = None
+    avg_pm_last_5:   Optional[float] = None
+    avg_pm_last_20:  Optional[float] = None
+    avg_pm_last_50:  Optional[float] = None
+    avg_pm_last_100: Optional[float] = None
 
     def episode_by_id(self, video_id: str) -> Optional[EpisodeResult]:
         for ep in self.episodes:
@@ -87,6 +94,14 @@ def _rolling_avg(episodes: list[EpisodeResult], n: int) -> Optional[float]:
     return sum(ep.count for ep in subset) / len(subset)
 
 
+def _rolling_avg_pm(episodes: list[EpisodeResult], n: int) -> Optional[float]:
+    """Average per-minute mention rate, skipping episodes with unknown duration."""
+    subset = [ep for ep in episodes[:n] if ep.duration_seconds > 0]
+    if not subset:
+        return None
+    return sum(ep.per_minute for ep in subset) / len(subset)
+
+
 def _compute_averages(result: SearchResult) -> None:
     eps = result.episodes  # already newest-first
     result.avg_last_1   = _rolling_avg(eps, 1)
@@ -94,6 +109,11 @@ def _compute_averages(result: SearchResult) -> None:
     result.avg_last_20  = _rolling_avg(eps, 20)
     result.avg_last_50  = _rolling_avg(eps, 50)
     result.avg_last_100 = _rolling_avg(eps, 100)
+    result.avg_pm_last_1   = _rolling_avg_pm(eps, 1)
+    result.avg_pm_last_5   = _rolling_avg_pm(eps, 5)
+    result.avg_pm_last_20  = _rolling_avg_pm(eps, 20)
+    result.avg_pm_last_50  = _rolling_avg_pm(eps, 50)
+    result.avg_pm_last_100 = _rolling_avg_pm(eps, 100)
 
 
 def get_minute_breakdown(db: Database, keyword: str, video_id: str) -> list[MinuteResult]:

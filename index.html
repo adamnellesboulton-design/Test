@@ -135,8 +135,9 @@ main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
   align-items: center;
   gap: 6px;
 }
-.avg-pill .n { color: var(--muted); }
-.avg-pill .v { font-weight: 700; }
+.avg-pill .n   { color: var(--muted); }
+.avg-pill .v   { font-weight: 700; }
+.avg-pill .raw { font-size: .72rem; color: var(--muted); margin-left: 4px; }
 .avg-pill.ep1   .v { color: #fff; }
 .avg-pill.ep5   .v { color: var(--accent2); }
 .avg-pill.ep20  .v { color: #90e0ef; }
@@ -200,7 +201,7 @@ tbody td { padding: 9px 12px; }
 .fv-pct.medium { color: var(--gold); }
 .fv-pct.low    { color: var(--muted); }
 .fv-label { font-size: .7rem; color: var(--muted); margin-top: 3px; }
-.fv-model-badge {
+.fv-model-badge, .fv-ref-badge {
   display: inline-block;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -209,6 +210,10 @@ tbody td { padding: 9px 12px; }
   font-size: .75rem;
   color: var(--accent2);
   margin-bottom: 14px;
+}
+.fv-ref-badge {
+  color: var(--muted);
+  margin-left: 6px;
 }
 
 #minute-panel { display: none; }
@@ -344,11 +349,11 @@ tbody td { padding: 9px 12px; }
       </div>
       <div class="stat-card">
         <div class="stat-val gold" id="stat-avg1">–</div>
-        <div class="stat-label">Avg last episode</div>
+        <div class="stat-label">Avg/min last ep</div>
       </div>
       <div class="stat-card">
         <div class="stat-val green" id="stat-avg20">–</div>
-        <div class="stat-label">Avg last 20 eps</div>
+        <div class="stat-label">Avg/min last 20 eps</div>
       </div>
     </div>
 
@@ -371,6 +376,7 @@ tbody td { padding: 9px 12px; }
             <option value="100">Last 100</option>
           </select>
           <span id="fv-model-badge" class="fv-model-badge"></span>
+          <span id="fv-ref-badge" class="fv-ref-badge" title="Normalized to median episode length of the lookback window"></span>
         </div>
         <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
       </div>
@@ -494,12 +500,16 @@ function calcAverages(episodes) {
     if (!s.length) return null;
     return s.reduce((a, b) => a + b.count, 0) / s.length;
   }
+  function avgPm(n) {
+    const s = episodes.slice(0, n).filter(e => e.duration_seconds > 0);
+    if (!s.length) return null;
+    return s.reduce((a, b) => a + b.per_minute, 0) / s.length;
+  }
   return {
-    last_1:   avg(1),
-    last_5:   avg(5),
-    last_20:  avg(20),
-    last_50:  avg(50),
-    last_100: avg(100),
+    last_1:   avg(1),   last_5:   avg(5),   last_20:  avg(20),
+    last_50:  avg(50),  last_100: avg(100),
+    pm_last_1:   avgPm(1),   pm_last_5:   avgPm(5),   pm_last_20:  avgPm(20),
+    pm_last_50:  avgPm(50),  pm_last_100: avgPm(100),
   };
 }
 
@@ -525,20 +535,33 @@ function empiricalSF(counts, k) {
 }
 
 function calcFairValue(episodes, lookback = 20) {
-  const recent = episodes.slice(0, lookback);
-  const counts = recent.map(e => e.count);
-  const mean   = counts.reduce((a, b) => a + b, 0) / (counts.length || 1);
-  const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / (counts.length || 1);
-  const model  = recent.length >= 10 ? 'empirical' : 'poisson';
+  // Normalize by episode duration: use per-minute rate × median episode length
+  // so episodes of different lengths are compared on equal footing.
+  const recent = episodes.slice(0, lookback).filter(e => e.duration_seconds > 0);
+  const fallback = episodes.slice(0, lookback); // in case no duration data
+
+  let counts, intCounts, refMinutes;
+  if (recent.length) {
+    const durs = recent.map(e => e.duration_seconds).sort((a, b) => a - b);
+    refMinutes = durs[Math.floor(durs.length / 2)] / 60;
+    counts    = recent.map(e => e.per_minute * refMinutes);
+    intCounts = counts.map(c => Math.max(0, Math.round(c)));
+  } else {
+    refMinutes = null;
+    counts    = fallback.map(e => e.count);
+    intCounts = counts.map(c => Math.round(c));
+  }
+
+  const n    = counts.length || 1;
+  const mean = counts.reduce((a, b) => a + b, 0) / n;
+  const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  const model = n >= 10 ? 'empirical' : 'poisson';
 
   const buckets = [];
   for (let k = 0; k <= MAX_BUCKET; k++) {
-    const sf = model === 'empirical' ? empiricalSF(counts, k) : poissonSF(k, mean);
+    const sf = model === 'empirical' ? empiricalSF(intCounts, k) : poissonSF(k, mean);
     buckets.push({
-      n:     k,
-      label: k === MAX_BUCKET ? `${k}+` : String(k),
-      sf,
-      pct:   +(sf * 100).toFixed(2),
+      n: k, label: k === MAX_BUCKET ? `${k}+` : String(k), sf, pct: +(sf * 100).toFixed(2),
     });
   }
 
@@ -547,7 +570,8 @@ function calcFairValue(episodes, lookback = 20) {
     mean:              +mean.toFixed(4),
     std_dev:           +Math.sqrt(variance).toFixed(4),
     model,
-    lookback_episodes: recent.length,
+    lookback_episodes: n,
+    reference_minutes: refMinutes ? +refMinutes.toFixed(1) : null,
     buckets,
   };
 }
@@ -639,6 +663,8 @@ function updateFV() {
   currentData.fair_value = fv;
   document.getElementById("fv-model-badge").textContent =
     { poisson: "Poisson", empirical: "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
+  const refElU = document.getElementById("fv-ref-badge");
+  if (refElU) refElU.textContent = fv.reference_minutes ? `ref ${fv.reference_minutes}min` : "";
   renderFVChart(fv);
   renderFVGrid(fv);
 }
@@ -650,20 +676,25 @@ function renderResults(data) {
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
-  document.getElementById("stat-avg1").textContent     = fmt(avgs.last_1);
-  document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
+  // Prefer per-minute values for the normalized view; fall back to raw counts
+  const pm = avgs.pm_last_1   != null ? avgs : null;
+  const fmtPm = v => v == null ? "–" : v.toFixed(3) + "/min";
+
+  document.getElementById("stat-avg1").textContent  = fmtPm(avgs.pm_last_1);
+  document.getElementById("stat-avg20").textContent = fmtPm(avgs.pm_last_20);
 
   const pillDefs = [
-    { cls: "ep1",   n: "Last 1",   v: avgs.last_1   },
-    { cls: "ep5",   n: "Last 5",   v: avgs.last_5   },
-    { cls: "ep20",  n: "Last 20",  v: avgs.last_20  },
-    { cls: "ep50",  n: "Last 50",  v: avgs.last_50  },
-    { cls: "ep100", n: "Last 100", v: avgs.last_100 },
+    { cls: "ep1",   n: "Last 1",   pm: avgs.pm_last_1,   raw: avgs.last_1   },
+    { cls: "ep5",   n: "Last 5",   pm: avgs.pm_last_5,   raw: avgs.last_5   },
+    { cls: "ep20",  n: "Last 20",  pm: avgs.pm_last_20,  raw: avgs.last_20  },
+    { cls: "ep50",  n: "Last 50",  pm: avgs.pm_last_50,  raw: avgs.last_50  },
+    { cls: "ep100", n: "Last 100", pm: avgs.pm_last_100, raw: avgs.last_100 },
   ];
   document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
     `<div class="avg-pill ${p.cls}">
        <span class="n">${p.n}:</span>
-       <span class="v">${fmt(p.v)}</span>
+       <span class="v">${fmtPm(p.pm)}</span>
+       <span class="raw">(${fmt(p.raw)} raw)</span>
      </div>`
   ).join("");
 
@@ -671,6 +702,8 @@ function renderResults(data) {
 
   document.getElementById("fv-model-badge").textContent =
     { poisson: "Poisson", empirical: "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
+  const refEl = document.getElementById("fv-ref-badge");
+  refEl.textContent = fv.reference_minutes ? `ref ${fv.reference_minutes}min` : "";
   renderFVChart(fv);
   renderFVGrid(fv);
   renderTable(eps);
