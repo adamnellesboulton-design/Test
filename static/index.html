@@ -74,27 +74,199 @@ header {
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary   { background: var(--accent); color: #fff; }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-.btn-blue { background: var(--accent2); color: #000; }
+.btn-blue      { background: var(--accent2); color: #000; }
+.btn-danger    { background: #3a1a1a; color: var(--accent); border: 1px solid var(--accent); font-size: .8rem; padding: 5px 10px; }
+.btn-sm        { padding: 6px 12px; font-size: .8rem; }
 
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  display: inline-block;
-}
-.status-dot.ok    { background: var(--green); }
-.status-dot.busy  { background: var(--gold); animation: pulse 1s infinite; }
-.status-dot.error { background: var(--accent); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-.status-text { font-size: .8rem; color: var(--muted); }
+.status-text { font-size: .85rem; color: var(--muted); }
 
 /* ── Main ── */
-main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+.main-cols {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  min-height: 0;
+}
+
+/* ── Sidebar (episodes) ── */
+.sidebar {
+  width: 320px;
+  min-width: 280px;
+  max-width: 380px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-title {
+  font-size: .85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+}
+.sidebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.episode-count {
+  font-size: .8rem;
+  color: var(--muted);
+  padding: 0 16px 10px;
+}
+.episode-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+.ep-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.ep-item:hover { background: var(--surface); }
+.ep-item input[type=checkbox] {
+  accent-color: var(--accent2);
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ep-info { flex: 1; min-width: 0; }
+.ep-title {
+  font-size: .83rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ep-meta {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ep-delete {
+  opacity: 0;
+  transition: opacity .15s;
+  flex-shrink: 0;
+}
+.ep-item:hover .ep-delete { opacity: 1; }
+
+.select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: .8rem;
+  color: var(--muted);
+}
+.select-all-row input[type=checkbox] {
+  accent-color: var(--accent2);
+  width: 15px; height: 15px;
+  cursor: pointer;
+}
+
+/* ── Upload panel ── */
+.upload-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.upload-panel.visible { display: flex; }
+.upload-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  width: 520px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.upload-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+  color: var(--text);
+}
+.upload-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  margin-bottom: 16px;
+}
+.upload-drop-zone:hover,
+.upload-drop-zone.drag-over {
+  border-color: var(--accent2);
+  background: rgba(0,180,216,.05);
+}
+.upload-drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-drop-zone p { color: var(--muted); font-size: .9rem; }
+.upload-drop-zone strong { color: var(--accent2); cursor: pointer; }
+#file-input { display: none; }
+
+/* Queued files list */
+.queued-files { margin-bottom: 16px; }
+.queued-file {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.queued-file-name { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+.field-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.field-row input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: .82rem;
+  outline: none;
+}
+.field-row input:focus { border-color: var(--accent2); }
+.field-row input::placeholder { color: var(--muted); }
+.field-row .date-input { flex: 0 0 130px; }
+
+.upload-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.upload-progress { font-size: .85rem; color: var(--accent2); margin-top: 12px; }
+.upload-result-item { font-size: .8rem; margin-top: 4px; }
+.upload-result-item.ok    { color: var(--green); }
+.upload-result-item.error { color: var(--accent); }
+
+/* ── Content area ── */
+.content { flex: 1; padding: 24px; overflow-y: auto; min-width: 0; }
 
 /* ── Cards ── */
 .card {
@@ -140,9 +312,8 @@ main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
   align-items: center;
   gap: 6px;
 }
-.avg-pill .n  { color: var(--muted); }
-.avg-pill .v  { font-weight: 700; }
-.avg-pill .ci { color: var(--muted); font-size: .75rem; }
+.avg-pill .n { color: var(--muted); }
+.avg-pill .v { font-weight: 700; }
 .avg-pill.ep1   .v { color: #fff; }
 .avg-pill.ep5   .v { color: var(--accent2); }
 .avg-pill.ep20  .v { color: #90e0ef; }
@@ -274,11 +445,17 @@ tbody td { padding: 9px 12px; }
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.error   { border-color: var(--accent); color: var(--accent); }
 
-/* ── No-data landing ── */
-#landing { display: none; }
-#landing.visible { display: block; }
+/* ── Results visibility ── */
+#no-data-msg { display: none; }
+#no-data-msg.visible { display: block; }
 #results { display: none; }
 #results.visible { display: block; }
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .main-cols { flex-direction: column; }
+  .sidebar { width: 100%; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; }
+}
 </style>
 </head>
 <body>
@@ -294,107 +471,156 @@ tbody td { padding: 9px 12px; }
   </div>
 
   <div class="header-actions">
-    <span class="status-dot" id="status-dot"></span>
     <span class="status-text" id="status-text">Loading…</span>
   </div>
 </header>
 
-<!-- ── Main ── -->
-<main>
+<!-- ── Body ── -->
+<div class="main-cols">
 
-  <!-- Landing (empty DB / syncing) -->
-  <div id="landing">
-    <div class="empty">
-      <div class="spinner"></div>
-      <h2 style="margin-bottom:10px" id="landing-heading">Fetching episodes…</h2>
-      <p style="color:var(--muted)" id="landing-msg">Pulling transcripts from YouTube. This may take a few minutes.</p>
-    </div>
-  </div>
-
-  <!-- Results -->
-  <div id="results">
-
-    <!-- Stats row -->
-    <div class="stats-row" id="stats-row">
-      <div class="stat-card">
-        <div class="stat-val" id="stat-total">–</div>
-        <div class="stat-label">Total mentions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val blue" id="stat-episodes">–</div>
-        <div class="stat-label">Episodes with data</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val gold" id="stat-avg1">–</div>
-        <div class="stat-label">Avg last episode</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val green" id="stat-avg20">–</div>
-        <div class="stat-label">Avg last 20 eps</div>
+  <!-- ── Sidebar: Episodes ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Episodes</div>
+      <div class="sidebar-actions">
+        <button class="btn btn-blue btn-sm" id="upload-btn">+ Upload</button>
+        <button class="btn btn-secondary btn-sm" id="search-selected-btn">Search selected</button>
       </div>
     </div>
 
-    <!-- Averages pills -->
-    <div class="avgs-row" id="avgs-row"></div>
+    <div class="select-all-row">
+      <input type="checkbox" id="select-all-cb" title="Select / deselect all"/>
+      <label for="select-all-cb" style="cursor:pointer">Select all</label>
+      <span id="selected-count" style="margin-left:auto;color:var(--accent2)"></span>
+    </div>
 
-    <!-- Charts grid -->
-    <div class="charts-grid">
-      <div class="card">
-        <div class="card-title">Mentions per episode</div>
-        <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+    <div class="episode-count" id="episode-count"></div>
+    <div class="episode-list" id="episode-list">
+      <div class="empty" style="padding:30px 20px">
+        <div class="icon">📂</div>
+        <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
       </div>
-      <div class="card">
-        <div class="card-title">Polymarket fair value — next episode</div>
-        <div class="lookback-row">
-          <label>Lookback:</label>
-          <select id="lookback-sel">
-            <option value="5">Last 5</option>
-            <option value="10">Last 10</option>
-            <option value="20" selected>Last 20</option>
-            <option value="50">Last 50</option>
-            <option value="100">Last 100</option>
-          </select>
-          <span id="fv-model-badge" class="fv-model-badge"></span>
+    </div>
+  </aside>
+
+  <!-- ── Content ── -->
+  <main class="content">
+
+    <!-- No data -->
+    <div id="no-data-msg">
+      <div class="empty">
+        <div class="icon">🔍</div>
+        <h2 style="margin-bottom:10px">Upload transcripts to begin</h2>
+        <p style="color:var(--muted)">Click <strong>+ Upload</strong> in the sidebar to add .txt transcript files,<br>then search for any keyword.</p>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-total">–</div>
+          <div class="stat-label">Total mentions</div>
         </div>
-        <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
+        <div class="stat-card">
+          <div class="stat-val blue" id="stat-episodes">–</div>
+          <div class="stat-label">Episodes searched</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val gold" id="stat-avg1">–</div>
+          <div class="stat-label">Avg last episode</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val green" id="stat-avg20">–</div>
+          <div class="stat-label">Avg last 20 eps</div>
+        </div>
       </div>
-    </div>
 
-    <!-- Fair value grid -->
-    <div class="card">
-      <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
-      <div id="fv-lambda-ci" style="font-size:.8rem;color:var(--muted);margin-bottom:12px"></div>
-      <div class="fv-grid" id="fv-grid"></div>
-    </div>
+      <!-- Averages pills -->
+      <div class="avgs-row" id="avgs-row"></div>
 
-    <!-- Per-minute panel -->
-    <div class="card" id="minute-panel">
-      <div class="card-title" id="minute-title">Per-minute breakdown</div>
-      <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
-    </div>
-
-    <!-- Episode table -->
-    <div class="card">
-      <div class="card-title">Episode history — click a row for per-minute view</div>
-      <div class="table-wrap">
-        <table id="ep-table">
-          <thead>
-            <tr>
-              <th>Episode</th>
-              <th>Date</th>
-              <th>Mentions</th>
-              <th>95% CI (Joe-only)</th>
-              <th>Per min</th>
-              <th>Title</th>
-            </tr>
-          </thead>
-          <tbody id="ep-tbody"></tbody>
-        </table>
+      <!-- Charts grid -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-title">Mentions per episode</div>
+          <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Polymarket fair value — next episode</div>
+          <div class="lookback-row">
+            <label>Lookback:</label>
+            <select id="lookback-sel">
+              <option value="5">Last 5</option>
+              <option value="10">Last 10</option>
+              <option value="20" selected>Last 20</option>
+              <option value="50">Last 50</option>
+              <option value="100">Last 100</option>
+            </select>
+            <span id="fv-model-badge" class="fv-model-badge"></span>
+          </div>
+          <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
+        </div>
       </div>
+
+      <!-- Fair value grid -->
+      <div class="card">
+        <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
+        <div class="fv-grid" id="fv-grid"></div>
+      </div>
+
+      <!-- Per-minute panel -->
+      <div class="card" id="minute-panel">
+        <div class="card-title" id="minute-title">Per-minute breakdown</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
+      </div>
+
+      <!-- Episode table -->
+      <div class="card">
+        <div class="card-title">Episode history — click a row for per-minute view</div>
+        <div class="table-wrap">
+          <table id="ep-table">
+            <thead>
+              <tr>
+                <th>Episode</th>
+                <th>Date</th>
+                <th>Mentions</th>
+                <th>Per min</th>
+                <th>Title</th>
+              </tr>
+            </thead>
+            <tbody id="ep-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /results -->
+  </main>
+</div><!-- /main-cols -->
+</div><!-- /app -->
+
+<!-- ── Upload panel ── -->
+<div class="upload-panel" id="upload-panel">
+  <div class="upload-box">
+    <div class="upload-title">Upload Transcripts</div>
+
+    <div class="upload-drop-zone" id="drop-zone">
+      <div class="icon">📄</div>
+      <p>Drag &amp; drop .txt files here<br>or <strong id="browse-link">browse</strong></p>
+      <input type="file" id="file-input" accept=".txt" multiple/>
     </div>
 
-  </div><!-- /results -->
-</main>
+    <div class="queued-files" id="queued-files"></div>
+
+    <div class="upload-actions">
+      <button class="btn btn-secondary" id="upload-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="upload-submit-btn" disabled>Upload</button>
+    </div>
+
+    <div id="upload-progress" class="upload-progress" style="display:none"></div>
+    <div id="upload-results"></div>
+  </div>
 </div>
 
 <!-- ── Toast ── -->
@@ -404,73 +630,272 @@ tbody td { padding: 9px 12px; }
 // ────────────────────────────────────────────────────────────
 // State
 // ────────────────────────────────────────────────────────────
-let currentKeyword  = "";
-let currentData     = null;       // last /api/search response
-let trendChart      = null;
-let fvChart         = null;
-let minuteChart     = null;
-let statusInterval  = null;
+let allEpisodes   = [];   // [{id, title, episode_date, ...}]
+let selectedIds   = new Set();  // episode IDs checked in sidebar
+let currentData   = null;
+let currentKeyword = "";
+let trendChart    = null;
+let fvChart       = null;
+let minuteChart   = null;
+let queuedFiles   = [];   // [{file, title, date}]
 
 // ────────────────────────────────────────────────────────────
 // Boot
 // ────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  refreshStatus();
-  statusInterval = setInterval(refreshStatus, 4000);
+  loadEpisodes();
 
-  // Search
   document.getElementById("search-btn").addEventListener("click", doSearch);
   document.getElementById("search-input").addEventListener("keydown", e => {
     if (e.key === "Enter") doSearch();
   });
-
-  // Lookback change
   document.getElementById("lookback-sel").addEventListener("change", () => {
     if (currentKeyword) doSearch();
+  });
+
+  // Sidebar
+  document.getElementById("upload-btn").addEventListener("click", openUpload);
+  document.getElementById("search-selected-btn").addEventListener("click", doSearch);
+  document.getElementById("select-all-cb").addEventListener("change", toggleSelectAll);
+
+  // Upload panel
+  document.getElementById("upload-cancel-btn").addEventListener("click", closeUpload);
+  document.getElementById("upload-submit-btn").addEventListener("click", submitUpload);
+  document.getElementById("browse-link").addEventListener("click", () =>
+    document.getElementById("file-input").click()
+  );
+  document.getElementById("drop-zone").addEventListener("click", e => {
+    if (e.target.id !== "browse-link") document.getElementById("file-input").click();
+  });
+  document.getElementById("file-input").addEventListener("change", e =>
+    addFiles(Array.from(e.target.files))
+  );
+
+  // Drag-and-drop
+  const dz = document.getElementById("drop-zone");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("drag-over");
+    addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".txt")));
   });
 });
 
 // ────────────────────────────────────────────────────────────
-// Status polling
+// Load episodes from server
 // ────────────────────────────────────────────────────────────
-async function refreshStatus() {
+async function loadEpisodes() {
   try {
-    const r = await fetch("/api/status");
-    const d = await r.json();
-    const dot  = document.getElementById("status-dot");
-    const txt  = document.getElementById("status-text");
-
-    if (d.sync.running) {
-      dot.className = "status-dot busy";
-      txt.textContent = d.sync.message;
-      // Update landing screen to reflect live progress
-      const added = d.sync.added || 0;
-      document.getElementById("landing-heading").textContent =
-        added > 0 ? `Fetched ${added} episodes so far…` : "Fetching episodes…";
-      document.getElementById("landing-msg").textContent = d.sync.message;
-    } else if (d.total_episodes > 0) {
-      dot.className = "status-dot ok";
-      txt.textContent = `${d.total_episodes} episodes  |  ${d.latest_date || ""}`;
-    } else {
-      // No episodes and not syncing — rate-limited on startup, show message
-      dot.className = "status-dot";
-      txt.textContent = "Waiting for YouTube…";
-      document.getElementById("landing-heading").textContent = "YouTube rate-limited";
-      document.getElementById("landing-msg").textContent =
-        "Transcripts reset around 11 am UTC. The app will retry automatically tomorrow.";
-    }
-    showContent(d.total_episodes > 0);
+    const r = await fetch("/api/episodes");
+    allEpisodes = await r.json();
+    // Default: all selected
+    selectedIds = new Set(allEpisodes.map(e => e.id));
+    renderSidebar();
+    updateStatus();
   } catch {
-    document.getElementById("status-dot").className = "status-dot error";
     document.getElementById("status-text").textContent = "Server unreachable";
   }
 }
 
-function showContent(hasData) {
-  document.getElementById("landing").classList.toggle("visible", !hasData);
-  // Don't hide results if a search was already done
-  if (!hasData) {
+function updateStatus() {
+  const total = allEpisodes.length;
+  document.getElementById("status-text").textContent =
+    total === 0 ? "No episodes uploaded" : `${total} episode${total !== 1 ? "s" : ""} in database`;
+
+  if (total === 0) {
+    document.getElementById("no-data-msg").classList.add("visible");
     document.getElementById("results").classList.remove("visible");
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Sidebar
+// ────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById("episode-list");
+  const countEl = document.getElementById("episode-count");
+
+  if (allEpisodes.length === 0) {
+    list.innerHTML = `<div class="empty" style="padding:30px 20px">
+      <div class="icon">📂</div>
+      <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
+    </div>`;
+    countEl.textContent = "";
+    document.getElementById("selected-count").textContent = "";
+    return;
+  }
+
+  countEl.textContent = `${allEpisodes.length} episode${allEpisodes.length !== 1 ? "s" : ""}`;
+  updateSelectedCount();
+
+  list.innerHTML = allEpisodes.map(ep => {
+    const checked = selectedIds.has(ep.id) ? "checked" : "";
+    const num = ep.episode_number ? `#${ep.episode_number} · ` : "";
+    const date = ep.episode_date || ep.uploaded_at?.slice(0, 10) || "";
+    const dur  = ep.duration_seconds > 0 ? ` · ${Math.round(ep.duration_seconds / 60)}m` : "";
+    const title = (ep.title || "").slice(0, 45) + ((ep.title || "").length > 45 ? "…" : "");
+    return `<div class="ep-item" data-id="${ep.id}">
+      <input type="checkbox" ${checked} data-id="${ep.id}" onclick="toggleEpisode(event,${ep.id})"/>
+      <div class="ep-info">
+        <div class="ep-title">${escHtml(title)}</div>
+        <div class="ep-meta">${num}${date}${dur}</div>
+      </div>
+      <button class="btn btn-danger ep-delete" onclick="deleteEpisode(event,${ep.id})" title="Delete">✕</button>
+    </div>`;
+  }).join("");
+
+  // Sync select-all checkbox
+  const allChecked = allEpisodes.every(e => selectedIds.has(e.id));
+  const noneChecked = allEpisodes.every(e => !selectedIds.has(e.id));
+  const cb = document.getElementById("select-all-cb");
+  cb.checked = allChecked;
+  cb.indeterminate = !allChecked && !noneChecked;
+}
+
+function toggleEpisode(event, id) {
+  event.stopPropagation();
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+  } else {
+    selectedIds.add(id);
+  }
+  updateSelectedCount();
+  // Sync select-all checkbox
+  const allChecked = allEpisodes.every(e => selectedIds.has(e.id));
+  const noneChecked = allEpisodes.every(e => !selectedIds.has(e.id));
+  const cb = document.getElementById("select-all-cb");
+  cb.checked = allChecked;
+  cb.indeterminate = !allChecked && !noneChecked;
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById("select-all-cb");
+  if (cb.checked) {
+    selectedIds = new Set(allEpisodes.map(e => e.id));
+  } else {
+    selectedIds = new Set();
+  }
+  renderSidebar();
+}
+
+function updateSelectedCount() {
+  const n = selectedIds.size;
+  const total = allEpisodes.length;
+  document.getElementById("selected-count").textContent =
+    n === total ? "" : `${n} selected`;
+}
+
+async function deleteEpisode(event, id) {
+  event.stopPropagation();
+  if (!confirm("Delete this episode and all its data?")) return;
+  try {
+    const r = await fetch(`/api/episode/${id}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Delete failed");
+    allEpisodes = allEpisodes.filter(e => e.id !== id);
+    selectedIds.delete(id);
+    renderSidebar();
+    updateStatus();
+    toast("Episode deleted", "success");
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Upload panel
+// ────────────────────────────────────────────────────────────
+function openUpload() {
+  queuedFiles = [];
+  document.getElementById("queued-files").innerHTML = "";
+  document.getElementById("upload-submit-btn").disabled = true;
+  document.getElementById("file-input").value = "";
+  document.getElementById("upload-progress").style.display = "none";
+  document.getElementById("upload-results").innerHTML = "";
+  document.getElementById("upload-panel").classList.add("visible");
+}
+
+function closeUpload() {
+  document.getElementById("upload-panel").classList.remove("visible");
+}
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (!f.name.endsWith(".txt")) return;
+    queuedFiles.push({ file: f, title: "", date: "" });
+  });
+  renderQueuedFiles();
+  document.getElementById("upload-submit-btn").disabled = queuedFiles.length === 0;
+}
+
+function renderQueuedFiles() {
+  const container = document.getElementById("queued-files");
+  if (queuedFiles.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = queuedFiles.map((item, i) => `
+    <div class="queued-file" data-index="${i}">
+      <div class="queued-file-name">📄 ${escHtml(item.file.name)}</div>
+      <div class="field-row">
+        <input type="text"
+               placeholder="Episode title (optional)"
+               value="${escHtml(item.title)}"
+               oninput="queuedFiles[${i}].title=this.value"/>
+        <input type="date"
+               class="date-input"
+               value="${item.date}"
+               oninput="queuedFiles[${i}].date=this.value"/>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function submitUpload() {
+  if (queuedFiles.length === 0) return;
+
+  const btn = document.getElementById("upload-submit-btn");
+  const prog = document.getElementById("upload-progress");
+  const resultsEl = document.getElementById("upload-results");
+
+  btn.disabled = true;
+  prog.style.display = "block";
+  prog.textContent = `Uploading ${queuedFiles.length} file(s)…`;
+  resultsEl.innerHTML = "";
+
+  const fd = new FormData();
+  queuedFiles.forEach(item => {
+    fd.append("files[]", item.file, item.file.name);
+    fd.append("title[]", item.title || item.file.name.replace(/\.txt$/i, ""));
+    fd.append("episode_date[]", item.date || "");
+  });
+
+  try {
+    const r = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await r.json();
+
+    let html = "";
+    (data.created || []).forEach(ep => {
+      html += `<div class="upload-result-item ok">✓ ${escHtml(ep.title)} — ${ep.segment_count} segments</div>`;
+    });
+    (data.errors || []).forEach(err => {
+      html += `<div class="upload-result-item error">✗ ${escHtml(err.filename)}: ${escHtml(err.error)}</div>`;
+    });
+    resultsEl.innerHTML = html;
+
+    prog.textContent = `Done. ${(data.created||[]).length} uploaded, ${(data.errors||[]).length} errors.`;
+
+    if ((data.created || []).length > 0) {
+      await loadEpisodes();
+      toast(`${data.created.length} episode(s) uploaded`, "success");
+    }
+
+    queuedFiles = [];
+    btn.disabled = true;
+  } catch (e) {
+    prog.textContent = "Upload failed: " + e.message;
+    toast("Upload failed", "error");
+    btn.disabled = false;
   }
 }
 
@@ -480,26 +905,39 @@ function showContent(hasData) {
 async function doSearch() {
   const kw = document.getElementById("search-input").value.trim();
   if (!kw) { toast("Enter a keyword first", "error"); return; }
+  if (allEpisodes.length === 0) { toast("Upload transcripts first", "error"); return; }
 
   const lookback = document.getElementById("lookback-sel").value;
   currentKeyword = kw;
 
-  document.getElementById("search-btn").disabled = true;
-  document.getElementById("search-btn").textContent = "Searching…";
+  // Determine episode filter
+  const allSelected = selectedIds.size === allEpisodes.length;
+  const episodeIdsParam = allSelected
+    ? ""
+    : Array.from(selectedIds).join(",");
+
+  if (selectedIds.size === 0) { toast("Select at least one episode", "error"); return; }
+
+  const btn = document.getElementById("search-btn");
+  btn.disabled = true;
+  btn.textContent = "Searching…";
 
   try {
-    const r = await fetch(`/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}`);
+    let url = `/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}`;
+    if (episodeIdsParam) url += `&episode_ids=${episodeIdsParam}`;
+
+    const r = await fetch(url);
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
     const data = await r.json();
     currentData = data;
     renderResults(data);
     document.getElementById("results").classList.add("visible");
-    document.getElementById("landing").classList.remove("visible");
+    document.getElementById("no-data-msg").classList.remove("visible");
   } catch (e) {
     toast(e.message, "error");
   } finally {
-    document.getElementById("search-btn").disabled = false;
-    document.getElementById("search-btn").textContent = "Search";
+    btn.disabled = false;
+    btn.textContent = "Search";
   }
 }
 
@@ -507,59 +945,40 @@ async function doSearch() {
 // Render
 // ────────────────────────────────────────────────────────────
 function renderResults(data) {
-  const eps   = data.episodes;
-  const avgs  = data.averages;
-  const fv    = data.fair_value;
+  const eps  = data.episodes;
+  const avgs = data.averages;
+  const fv   = data.fair_value;
 
-  // Stats
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
   document.getElementById("stat-avg1").textContent     = fmt(avgs.last_1);
   document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
 
-  // Average pills with 95 % CI
+  // Average pills
   const pillDefs = [
-    {cls:"ep1",   n:"Last 1",   v: avgs.last_1,   lo: avgs.last_1_lo,   hi: avgs.last_1_hi},
-    {cls:"ep5",   n:"Last 5",   v: avgs.last_5,   lo: avgs.last_5_lo,   hi: avgs.last_5_hi},
-    {cls:"ep20",  n:"Last 20",  v: avgs.last_20,  lo: avgs.last_20_lo,  hi: avgs.last_20_hi},
-    {cls:"ep50",  n:"Last 50",  v: avgs.last_50,  lo: avgs.last_50_lo,  hi: avgs.last_50_hi},
-    {cls:"ep100", n:"Last 100", v: avgs.last_100, lo: avgs.last_100_lo, hi: avgs.last_100_hi},
+    {cls:"ep1",   n:"Last 1",   v: avgs.last_1},
+    {cls:"ep5",   n:"Last 5",   v: avgs.last_5},
+    {cls:"ep20",  n:"Last 20",  v: avgs.last_20},
+    {cls:"ep50",  n:"Last 50",  v: avgs.last_50},
+    {cls:"ep100", n:"Last 100", v: avgs.last_100},
   ];
-  document.getElementById("avgs-row").innerHTML = pillDefs.map(p => {
-    const ciStr = (p.lo != null && p.hi != null)
-      ? `<span class="ci">[${p.lo.toFixed(1)}–${p.hi.toFixed(1)}]</span>`
-      : "";
-    return `<div class="avg-pill ${p.cls}">
+  document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
+    `<div class="avg-pill ${p.cls}">
        <span class="n">${p.n}:</span>
        <span class="v">${fmt(p.v)}</span>
-       ${ciStr}
-     </div>`;
-  }).join("");
+     </div>`
+  ).join("");
 
-  // Trend chart
   renderTrendChart(eps);
 
-  // FV model badge
   document.getElementById("fv-model-badge").textContent =
     { "poisson": "Poisson", "empirical": "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
 
-  // λ CI note (speaker-filter corrected)
-  if (fv.lambda_ci_lo != null && fv.lambda_ci_hi != null) {
-    document.getElementById("fv-lambda-ci").textContent =
-      `λ = ${fv.lambda.toFixed(2)}  |  95 % CI on true Joe count: [${fv.lambda_ci_lo.toFixed(2)}, ${fv.lambda_ci_hi.toFixed(2)}]  (±35 % speaker-filter uncertainty)`;
-  }
-
-  // FV chart
   renderFVChart(fv);
-
-  // FV grid
   renderFVGrid(fv);
-
-  // Episode table
   renderTable(eps);
 
-  // Hide minute panel
   document.getElementById("minute-panel").classList.remove("visible");
   if (minuteChart) { minuteChart.destroy(); minuteChart = null; }
 }
@@ -569,12 +988,10 @@ function renderTrendChart(episodes) {
   const ctx = document.getElementById("trend-chart").getContext("2d");
   if (trendChart) trendChart.destroy();
 
-  // Oldest → newest
   const eps    = [...episodes].reverse();
-  const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.upload_date || e.video_id.slice(0,6)));
+  const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
   const counts = eps.map(e => e.count);
 
-  // Average lines (horizontal)
   const avgsData = currentData.averages;
   const avgLines = [
     { label: "Last 1",   value: avgsData.last_1,   color: "#ffffff" },
@@ -590,20 +1007,13 @@ function renderTrendChart(episodes) {
       data: counts,
       backgroundColor: counts.map(c => c > 0 ? "#e94560cc" : "#2a2a4a"),
       borderColor: counts.map(c => c > 0 ? "#e94560" : "#2a2a4a"),
-      borderWidth: 1,
-      borderRadius: 3,
-      type: "bar",
-      order: 2,
+      borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
     },
     ...avgLines.map(a => ({
       label: `${a.label} avg: ${a.value.toFixed(2)}`,
       data: Array(eps.length).fill(a.value),
-      borderColor: a.color,
-      borderWidth: 1.5,
-      borderDash: [4, 4],
-      pointRadius: 0,
-      type: "line",
-      order: 1,
+      borderColor: a.color, borderWidth: 1.5, borderDash: [4, 4],
+      pointRadius: 0, type: "line", order: 1,
     }))
   ];
 
@@ -613,35 +1023,12 @@ function renderTrendChart(episodes) {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: {
-          labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 },
-          position: "top",
-        },
-        tooltip: {
-          callbacks: {
-            title: items => {
-              const i = items[0].dataIndex;
-              const ep = eps[i];
-              return ep.title ? ep.title.slice(0, 50) : labels[i];
-            }
-          }
-        }
+        legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        tooltip: { callbacks: { title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; } } }
       },
       scales: {
-        x: {
-          ticks: {
-            color: "#888",
-            maxRotation: 45,
-            font: { size: 10 },
-            maxTicksLimit: 25,
-          },
-          grid: { color: "#22223a" },
-        },
-        y: {
-          ticks: { color: "#888" },
-          grid: { color: "#22223a" },
-          beginAtZero: true,
-        }
+        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" } },
+        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true }
       }
     }
   });
@@ -658,36 +1045,13 @@ function renderFVChart(fv) {
 
   fvChart = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "P(≥ N) %",
-        data: pcts,
-        backgroundColor: colors,
-        borderColor: colors.map(c => c.replace("cc", "")),
-        borderWidth: 1,
-        borderRadius: 4,
-      }]
-    },
+    data: { labels, datasets: [{ label: "P(≥ N) %", data: pcts, backgroundColor: colors, borderColor: colors.map(c => c.replace("cc","")), borderWidth: 1, borderRadius: 4 }] },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 300 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: item => `P(≥${item.label}) = ${item.raw.toFixed(1)}%`
-          }
-        }
-      },
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: item => `P(≥${item.label}) = ${item.raw.toFixed(1)}%` } } },
       scales: {
         x: { ticks: { color: "#888" }, grid: { color: "#22223a" } },
-        y: {
-          ticks: { color: "#888", callback: v => v + "%" },
-          grid: { color: "#22223a" },
-          beginAtZero: true,
-          max: 100,
-        }
+        y: { ticks: { color: "#888", callback: v => v + "%" }, grid: { color: "#22223a" }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -695,8 +1059,7 @@ function renderFVChart(fv) {
 
 // ── FV grid ──────────────────────────────────────────────────
 function renderFVGrid(fv) {
-  const el = document.getElementById("fv-grid");
-  el.innerHTML = fv.buckets.map(b => {
+  document.getElementById("fv-grid").innerHTML = fv.buckets.map(b => {
     const pct = b.pct;
     const cls = pct >= 30 ? "high" : pct >= 10 ? "medium" : "low";
     return `<div class="fv-cell">
@@ -711,22 +1074,18 @@ function renderFVGrid(fv) {
 function renderTable(episodes) {
   const tbody = document.getElementById("ep-tbody");
   tbody.innerHTML = episodes.map(ep => {
-    const num   = ep.episode_number ? `#${ep.episode_number}` : ep.video_id.slice(0, 8);
+    const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
     const badge = ep.count > 0
       ? `<span class="count-badge">${ep.count}</span>`
       : `<span class="count-badge zero">0</span>`;
-    const ci = (ep.count_lo != null && ep.count_hi != null)
-      ? `<span class="per-min">[${ep.count_lo.toFixed(1)}–${ep.count_hi.toFixed(1)}]</span>`
-      : "—";
     const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
     const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
-    return `<tr data-vid="${ep.video_id}">
+    return `<tr data-eid="${ep.episode_id}">
       <td class="ep-num">${num}</td>
-      <td>${ep.upload_date || "—"}</td>
+      <td>${ep.episode_date || "—"}</td>
       <td>${badge}</td>
-      <td>${ci}</td>
       <td>${pm}</td>
-      <td>${title}</td>
+      <td>${escHtml(title)}</td>
     </tr>`;
   }).join("");
 
@@ -734,23 +1093,22 @@ function renderTable(episodes) {
     row.addEventListener("click", () => {
       tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected"));
       row.classList.add("selected");
-      loadMinutes(row.dataset.vid);
+      loadMinutes(parseInt(row.dataset.eid));
     });
   });
 }
 
 // ── Per-minute breakdown ──────────────────────────────────────
-async function loadMinutes(videoId) {
+async function loadMinutes(episodeId) {
   if (!currentKeyword) return;
   try {
-    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&video_id=${encodeURIComponent(videoId)}`);
+    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
     const d = await r.json();
 
     const panel = document.getElementById("minute-panel");
     panel.classList.add("visible");
-
     document.getElementById("minute-title").textContent =
-      `Per-minute — ${(d.title || videoId).slice(0, 60)}`;
+      `Per-minute — ${(d.title || String(episodeId)).slice(0, 60)}`;
 
     const ctx = document.getElementById("minute-chart").getContext("2d");
     if (minuteChart) minuteChart.destroy();
@@ -768,51 +1126,20 @@ async function loadMinutes(videoId) {
 
     minuteChart = new Chart(ctx, {
       type: "bar",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Mentions",
-            data: counts,
-            backgroundColor: "#e94560cc",
-            borderColor: "#e94560",
-            borderWidth: 1,
-            borderRadius: 3,
-            order: 2,
-          },
-          {
-            label: `Avg ${mean.toFixed(2)}/min`,
-            data: Array(counts.length).fill(mean),
-            type: "line",
-            borderColor: "#ffd166",
-            borderWidth: 1.5,
-            borderDash: [4, 4],
-            pointRadius: 0,
-            order: 1,
-          }
-        ]
-      },
+      data: { labels, datasets: [
+        { label: "Mentions", data: counts, backgroundColor: "#e94560cc", borderColor: "#e94560", borderWidth: 1, borderRadius: 3, order: 2 },
+        { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean), type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+      ]},
       options: {
-        responsive: true, maintainAspectRatio: false,
-        animation: { duration: 200 },
-        plugins: {
-          legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } }
-        },
+        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+        plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: {
-            ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 },
-            grid: { color: "#22223a" },
-          },
-          y: {
-            ticks: { color: "#888" },
-            grid: { color: "#22223a" },
-            beginAtZero: true,
-          }
+          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" } },
+          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true }
         }
       }
     });
 
-    // Scroll to panel
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
     toast("Could not load per-minute data", "error");
@@ -825,6 +1152,14 @@ async function loadMinutes(videoId) {
 function fmt(v) {
   if (v === null || v === undefined) return "—";
   return Number(v).toFixed(2);
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function toast(msg, type) {

@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - jre_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  jre_data:

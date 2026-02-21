@@ -4,18 +4,17 @@ JRE Transcript Analyzer — CLI entry point.
 
 Commands
 --------
-  sync    Fetch the last N episodes from YouTube and store transcripts.
+  upload  Parse and store a transcript .txt file.
   index   Build word-frequency tables for all un-indexed episodes.
   search  Search for a keyword and display stats + charts.
   info    Show database summary.
 
 Usage examples
 --------------
-  python main.py sync --episodes 100
+  python main.py upload transcript.txt --title "JRE #2200 - Guest Name" --date 2026-02-24
   python main.py index
   python main.py search "DMT"
   python main.py search "aliens" --lookback 50 --show-chart
-  python main.py search "Trump" --episode-id dQw4w9WgXcQ --minute-chart
   python main.py info
 """
 
@@ -30,6 +29,7 @@ from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_all, index_episode
 from jre_analyzer.search import search, get_minute_breakdown
 from jre_analyzer.fair_value import calculate_fair_value, format_fair_value_table
+from jre_analyzer.fetch_transcripts import parse_transcript_txt
 from jre_analyzer.visualize import (
     plot_episode_trend,
     plot_minute_breakdown,
@@ -69,23 +69,37 @@ def _header(text: str) -> str:
 # Command handlers
 # ------------------------------------------------------------------
 
-def cmd_sync(args: argparse.Namespace, db: Database) -> None:
-    try:
-        from jre_analyzer.fetch_transcripts import sync_episodes
-    except ImportError as e:
-        print(f"[error] Missing dependency: {e}")
-        print("        Run: pip install -r requirements.txt")
+def cmd_upload(args: argparse.Namespace, db: Database) -> None:
+    path = Path(args.file)
+    if not path.exists():
+        print(f"[error] File not found: {path}")
         sys.exit(1)
 
-    print(f"Syncing up to {args.episodes} episodes…")
-    added = sync_episodes(db, max_episodes=args.episodes, delay=args.delay)
-    print(f"\nDone. {added} new episodes added. Run 'index' to build frequency tables.")
+    content = path.read_text(encoding="utf-8", errors="replace")
+    segments, duration = parse_transcript_txt(content)
+
+    if not segments:
+        print("[error] No segments parsed — check the file format.")
+        sys.exit(1)
+
+    title = args.title or path.stem
+    episode_id = db.insert_episode(
+        title=title,
+        transcript=segments,
+        episode_date=args.date,
+        filename=path.name,
+        duration_seconds=duration,
+    )
+    print(f"Stored episode id={episode_id}: {title!r} ({len(segments)} segments)")
+    print("Indexing…")
+    index_episode(db, episode_id)
+    print("Done.")
 
 
 def cmd_index(args: argparse.Namespace, db: Database) -> None:
     total = db.count_episodes()
     if total == 0:
-        print("No episodes in database. Run 'sync' first.")
+        print("No episodes in database. Run 'upload' first.")
         return
 
     print(f"Indexing word frequencies for un-indexed episodes ({total} total in DB)…")
@@ -97,26 +111,23 @@ def cmd_search(args: argparse.Namespace, db: Database) -> None:
     keyword = args.keyword
     lookback = args.lookback
 
-    # ── Episode trend ──────────────────────────────────────────────
     print(_header(f"Keyword search: \"{keyword}\""))
     result = search(db, keyword)
 
     if not result.episodes:
-        print("No indexed episodes found. Run 'sync' then 'index' first.")
+        print("No indexed episodes found. Run 'upload' then 'index' first.")
         return
 
-    # Summary table
     print(f"\n{'Episode':>10}  {'Date':>12}  {'#Mentions':>10}  {'per min':>8}  {'Title'}")
     print("─" * 90)
     for ep in result.episodes[:args.top]:
-        ep_num = f"#{ep.episode_number}" if ep.episode_number else ep.video_id[:8]
-        date   = ep.upload_date or "unknown"
+        ep_num = f"#{ep.episode_number}" if ep.episode_number else f"id{ep.episode_id}"
+        date   = ep.episode_date or "unknown"
         pmin   = f"{ep.per_minute:.3f}"
         title  = ep.title[:45] + ("…" if len(ep.title) > 45 else "")
         count_str = _c(str(ep.count), Fore.RED if ep.count > 0 else Fore.WHITE) if HAS_COLOR else str(ep.count)
         print(f"{ep_num:>10}  {date:>12}  {count_str:>10}  {pmin:>8}  {title}")
 
-    # Rolling averages
     print()
     print("Rolling averages (mentions/episode):")
     avgs = [
@@ -127,41 +138,31 @@ def cmd_search(args: argparse.Namespace, db: Database) -> None:
         ("Last100 eps", result.avg_last_100),
     ]
     for label, val in avgs:
-        bar = ""
         if val is not None:
-            filled = min(40, int(val * 5))
-            bar = "█" * filled
+            bar = "█" * min(40, int(val * 5))
             print(f"  {label} : {val:6.2f}  {bar}")
         else:
             print(f"  {label} : (insufficient data)")
 
-    # ── Fair value ─────────────────────────────────────────────────
     fv = calculate_fair_value(result, lookback=lookback)
     print(_header("Polymarket fair values"))
     print(format_fair_value_table(fv))
 
-    # ── Charts ─────────────────────────────────────────────────────
     if args.show_chart or args.save_chart:
         plot_episode_trend(result, show=args.show_chart, save=args.save_chart)
-        plot_fair_value(
-            keyword,
-            _get_recommended_pmf(fv),
-            show=args.show_chart,
-            save=args.save_chart,
-        )
+        from jre_analyzer.fair_value import recommended_pmf
+        plot_fair_value(keyword, recommended_pmf(fv), show=args.show_chart, save=args.save_chart)
 
-    # ── Per-minute breakdown for a specific episode ────────────────
     if args.episode_id or args.minute_chart:
-        vid = args.episode_id
-        if not vid and result.episodes:
-            # Default to most recent episode
-            vid = result.episodes[0].video_id
-            print(f"\n(Using most recent episode: {vid})")
+        eid = args.episode_id
+        if not eid and result.episodes:
+            eid = result.episodes[0].episode_id
+            print(f"\n(Using most recent episode: id={eid})")
 
-        if vid:
-            minute_data = get_minute_breakdown(db, keyword, vid)
-            ep_obj = result.episode_by_id(vid)
-            ep_title = ep_obj.title if ep_obj else vid
+        if eid:
+            minute_data = get_minute_breakdown(db, keyword, eid)
+            ep_obj  = result.episode_by_id(eid)
+            ep_title = ep_obj.title if ep_obj else str(eid)
 
             print(_header(f"Per-minute breakdown: {ep_title[:60]}"))
             if minute_data:
@@ -171,11 +172,11 @@ def cmd_search(args: argparse.Namespace, db: Database) -> None:
                     bar = "█" * m.count
                     print(f"{m.minute:>8}  {m.count:>8}  {bar}")
             else:
-                print(f"  (keyword not mentioned in this episode)")
+                print("  (keyword not mentioned in this episode)")
 
             if args.minute_chart or args.show_chart or args.save_chart:
                 plot_minute_breakdown(
-                    result, vid, minute_data,
+                    result, eid, minute_data,
                     show=args.show_chart or args.minute_chart,
                     save=args.save_chart or args.minute_chart,
                 )
@@ -190,16 +191,7 @@ def cmd_info(args: argparse.Namespace, db: Database) -> None:
     for ep in eps:
         indexed = "✓" if ep.get("indexed_at") else "○"
         num = f"#{ep['episode_number']}" if ep.get("episode_number") else ""
-        print(f"    [{indexed}] {ep['upload_date'] or '????-??-??'}  {num:>6}  {ep['title'][:55]}")
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-def _get_recommended_pmf(fv) -> dict[int, float]:
-    from jre_analyzer.fair_value import recommended_pmf
-    return recommended_pmf(fv)
+        print(f"    [{indexed}] {ep['episode_date'] or '????-??-??'}  {num:>6}  {ep['title'][:55]}")
 
 
 # ------------------------------------------------------------------
@@ -215,10 +207,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = p.add_subparsers(dest="command", required=True)
 
-    # sync
-    s = sub.add_parser("sync", help="Fetch episodes and transcripts from YouTube")
-    s.add_argument("--episodes", type=int, default=100, help="Max episodes to fetch")
-    s.add_argument("--delay", type=float, default=1.5, help="Seconds between requests")
+    # upload
+    u = sub.add_parser("upload", help="Parse and store a transcript .txt file")
+    u.add_argument("file", help="Path to transcript .txt file")
+    u.add_argument("--title", default=None, help="Episode title")
+    u.add_argument("--date", default=None, help="Episode date (YYYY-MM-DD)")
 
     # index
     sub.add_parser("index", help="Build word-frequency index for stored episodes")
@@ -229,8 +222,8 @@ def build_parser() -> argparse.ArgumentParser:
     sr.add_argument("--top", type=int, default=20, help="Episodes to show in table")
     sr.add_argument("--lookback", type=int, default=20,
                     help="Episodes to use for fair-value calculation (default 20)")
-    sr.add_argument("--episode-id", default=None,
-                    help="YouTube video ID for per-minute breakdown")
+    sr.add_argument("--episode-id", type=int, default=None,
+                    help="Episode ID for per-minute breakdown")
     sr.add_argument("--show-chart", action="store_true",
                     help="Open charts interactively (requires display)")
     sr.add_argument("--save-chart", action="store_true", default=True,
@@ -255,8 +248,8 @@ def main() -> None:
     db = Database(db_path=args.db)
 
     try:
-        if args.command == "sync":
-            cmd_sync(args, db)
+        if args.command == "upload":
+            cmd_upload(args, db)
         elif args.command == "index":
             cmd_index(args, db)
         elif args.command == "search":
