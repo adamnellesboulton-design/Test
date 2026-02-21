@@ -46,11 +46,14 @@ MAX_BUCKET = 10   # counts above this are grouped into a "10+" bucket
 @dataclass
 class FairValueResult:
     keyword: str
-    lambda_estimate: float          # Poisson λ (mean mentions/episode)
+    lambda_estimate: float          # Poisson λ (mean mentions/episode, normalized)
     lookback_episodes: int
     mean: float
     variance: float
     overdispersed: bool             # True → negative-binomial may be better
+    # Median episode duration (minutes) used as normalization reference.
+    # None means raw counts were used (no duration data available).
+    reference_minutes: Optional[float] = None
 
     # P(mentions == n) for n = 0..MAX_BUCKET, key MAX_BUCKET means "≥ MAX_BUCKET"
     poisson_pmf:    dict[int, float]
@@ -78,12 +81,30 @@ def calculate_fair_value(
     lookback : Number of most-recent episodes to use for estimation (default 20)
     """
     # Use the N most-recent episodes (result.episodes is newest-first)
-    episodes = result.episodes[:lookback]
-    counts = [ep.count for ep in episodes]
-    n = len(counts)
+    all_eps = result.episodes[:lookback]
+
+    # ── Normalize by episode duration ────────────────────────────────────────
+    # Use per-minute mention rate × median episode duration as the effective
+    # count, so short and long episodes are treated on equal footing.
+    eps_with_dur = [ep for ep in all_eps if ep.duration_seconds > 0]
+    ref_minutes: Optional[float] = None
+
+    if eps_with_dur:
+        dur_sorted = sorted(ep.duration_seconds for ep in eps_with_dur)
+        ref_minutes = dur_sorted[len(dur_sorted) // 2] / 60.0
+        # Effective counts: what you'd expect in a reference-length episode
+        eff_counts = [ep.per_minute * ref_minutes for ep in eps_with_dur]
+        # Empirical PMF needs integer buckets — round to nearest whole mention
+        int_counts = [max(0, round(c)) for c in eff_counts]
+        n = len(eff_counts)
+    else:
+        # No duration data — fall back to raw counts
+        eff_counts = [float(ep.count) for ep in all_eps]
+        int_counts = [ep.count for ep in all_eps]
+        n = len(eff_counts)
 
     if n == 0:
-        # No data — return uniform over 0..10
+        # No data — return uniform over 0..MAX_BUCKET
         uniform = 1.0 / (MAX_BUCKET + 1)
         uniform_pmf = {i: uniform for i in range(MAX_BUCKET + 1)}
         uniform_sf  = {i: 1.0 - sum(uniform_pmf[j] for j in range(i)) for i in range(MAX_BUCKET + 1)}
@@ -92,19 +113,20 @@ def calculate_fair_value(
             lambda_estimate=0.0,
             lookback_episodes=0,
             mean=0.0, variance=0.0, overdispersed=False,
+            reference_minutes=ref_minutes,
             poisson_pmf=uniform_pmf, poisson_sf=uniform_sf,
             empirical_pmf=uniform_pmf, empirical_sf=uniform_sf,
             negbin_pmf=None, negbin_sf=None,
         )
 
-    mean = sum(counts) / n
-    variance = sum((c - mean) ** 2 for c in counts) / max(n - 1, 1)
+    mean = sum(eff_counts) / n
+    variance = sum((c - mean) ** 2 for c in eff_counts) / max(n - 1, 1)
     lam = mean if mean > 0 else 1e-9
     overdispersed = variance > mean * 1.2   # 20% tolerance
 
     poisson_pmf = _poisson_pmf_dict(lam)
     poisson_sf  = _sf_from_pmf(poisson_pmf)
-    empirical_pmf = _empirical_pmf(counts, n)
+    empirical_pmf = _empirical_pmf(int_counts, n)
     empirical_sf  = _sf_from_pmf(empirical_pmf)
 
     negbin_pmf: Optional[dict[int, float]] = None
@@ -121,6 +143,7 @@ def calculate_fair_value(
         mean=mean,
         variance=variance,
         overdispersed=overdispersed,
+        reference_minutes=ref_minutes,
         poisson_pmf=poisson_pmf,
         poisson_sf=poisson_sf,
         empirical_pmf=empirical_pmf,
