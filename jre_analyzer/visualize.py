@@ -129,7 +129,7 @@ def plot_episode_trend(
 
 def plot_minute_breakdown(
     result: SearchResult,
-    video_id: str,
+    episode_id: int,
     minute_data: list[MinuteResult],
     show: bool = False,
     save: bool = True,
@@ -145,8 +145,8 @@ def plot_minute_breakdown(
         print("No per-minute data available for this episode.")
         return None
 
-    ep = result.episode_by_id(video_id)
-    ep_label = ep.title if ep else video_id
+    ep = result.episode_by_id(episode_id)
+    ep_label = ep.title if ep else str(episode_id)
 
     minutes = [r.minute for r in minute_data]
     counts  = [r.count  for r in minute_data]
@@ -198,7 +198,7 @@ def plot_minute_breakdown(
     if save:
         out_dir = _ensure_output_dir()
         safe_kw = result.keyword.replace(" ", "_").replace("/", "-")
-        out_path = out_dir / f"minutes_{safe_kw}_{video_id}.png"
+        out_path = out_dir / f"minutes_{safe_kw}_{episode_id}.png"
         fig.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Saved minute chart → {out_path}")
 
@@ -279,6 +279,6 @@ def plot_fair_value(
 def _short_label(ep) -> str:
     if ep.episode_number:
         return f"#{ep.episode_number}"
-    if ep.upload_date:
-        return ep.upload_date[5:]  # MM-DD
-    return ep.video_id[:8]
+    if ep.episode_date:
+        return ep.episode_date[5:]  # MM-DD
+    return f"id{ep.episode_id}"

@@ -4,26 +4,28 @@ SQLite persistence layer.
 Schema
 ------
 episodes
-    video_id        TEXT PK
-    title           TEXT
-    upload_date     TEXT   (ISO format YYYY-MM-DD, nullable)
-    duration_seconds INTEGER
-    episode_number  INTEGER (parsed from title, nullable)
-    transcript_json TEXT   (JSON-encoded list of {start, duration, text})
-    indexed_at      TEXT   (ISO datetime when we processed word frequencies)
+    id               INTEGER PRIMARY KEY AUTOINCREMENT
+    title            TEXT NOT NULL        (user-supplied, e.g. "JRE #2100 – Guest Name")
+    episode_date     TEXT                 (ISO YYYY-MM-DD, nullable — the episode's air date)
+    filename         TEXT                 (original uploaded filename)
+    uploaded_at      TEXT                 (ISO datetime when file was uploaded to this app)
+    duration_seconds INTEGER              (derived from last transcript timestamp)
+    episode_number   INTEGER              (parsed from title, nullable)
+    transcript_json  TEXT DEFAULT '[]'   (JSON list of {start, text})
+    indexed_at       TEXT                 (ISO datetime when word frequencies were built)
 
 word_frequencies
-    video_id        TEXT   (FK → episodes.video_id)
-    word            TEXT
-    count           INTEGER
-    PRIMARY KEY (video_id, word)
+    episode_id  INTEGER  (FK → episodes.id)
+    word        TEXT     (lowercase, un-stemmed)
+    count       INTEGER
+    PRIMARY KEY (episode_id, word)
 
 minute_frequencies
-    video_id        TEXT
-    minute          INTEGER   (floor(start / 60))
-    word            TEXT
-    count           INTEGER
-    PRIMARY KEY (video_id, minute, word)
+    episode_id  INTEGER
+    minute      INTEGER  (floor(start / 60))
+    word        TEXT
+    count       INTEGER
+    PRIMARY KEY (episode_id, minute, word)
 """
 
 import json
@@ -53,37 +55,38 @@ class Database:
     # ------------------------------------------------------------------
 
     def _init_schema(self) -> None:
-        cur = self._con
-        cur.executescript("""
+        self._con.executescript("""
             CREATE TABLE IF NOT EXISTS episodes (
-                video_id         TEXT PRIMARY KEY,
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
                 title            TEXT NOT NULL,
-                upload_date      TEXT,
-                duration_seconds INTEGER,
+                episode_date     TEXT,
+                filename         TEXT,
+                uploaded_at      TEXT,
+                duration_seconds INTEGER DEFAULT 0,
                 episode_number   INTEGER,
                 transcript_json  TEXT NOT NULL DEFAULT '[]',
                 indexed_at       TEXT
             );
 
             CREATE TABLE IF NOT EXISTS word_frequencies (
-                video_id  TEXT NOT NULL,
-                word      TEXT NOT NULL,
-                count     INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (video_id, word)
+                episode_id  INTEGER NOT NULL,
+                word        TEXT NOT NULL,
+                count       INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (episode_id, word)
             );
 
             CREATE TABLE IF NOT EXISTS minute_frequencies (
-                video_id  TEXT NOT NULL,
-                minute    INTEGER NOT NULL,
-                word      TEXT NOT NULL,
-                count     INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (video_id, minute, word)
+                episode_id  INTEGER NOT NULL,
+                minute      INTEGER NOT NULL,
+                word        TEXT NOT NULL,
+                count       INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (episode_id, minute, word)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_wf_word ON word_frequencies(word);
-            CREATE INDEX IF NOT EXISTS idx_mf_word ON minute_frequencies(word);
-            CREATE INDEX IF NOT EXISTS idx_ep_date ON episodes(upload_date);
-            CREATE INDEX IF NOT EXISTS idx_ep_num  ON episodes(episode_number);
+            CREATE INDEX IF NOT EXISTS idx_wf_word     ON word_frequencies(word);
+            CREATE INDEX IF NOT EXISTS idx_mf_word     ON minute_frequencies(word);
+            CREATE INDEX IF NOT EXISTS idx_ep_date     ON episodes(episode_date);
+            CREATE INDEX IF NOT EXISTS idx_ep_num      ON episodes(episode_number);
         """)
         self._con.commit()
 
@@ -91,71 +94,66 @@ class Database:
     # Episodes
     # ------------------------------------------------------------------
 
-    def upsert_episode(
+    def insert_episode(
         self,
-        video_id: str,
         title: str,
-        upload_date: Optional[str],
-        duration_seconds: int,
         transcript: list[dict],
-    ) -> None:
+        episode_date: Optional[str] = None,
+        filename: Optional[str] = None,
+        duration_seconds: int = 0,
+    ) -> int:
+        """Insert a new episode. Returns the new episode id."""
         episode_number = _parse_episode_number(title)
-        self._con.execute(
+        uploaded_at = datetime.now(timezone.utc).isoformat()
+        cur = self._con.execute(
             """
-            INSERT INTO episodes (video_id, title, upload_date, duration_seconds,
-                                  episode_number, transcript_json)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(video_id) DO UPDATE SET
-                title            = excluded.title,
-                upload_date      = excluded.upload_date,
-                duration_seconds = excluded.duration_seconds,
-                episode_number   = excluded.episode_number,
-                transcript_json  = excluded.transcript_json
+            INSERT INTO episodes (title, episode_date, filename, uploaded_at,
+                                  duration_seconds, episode_number, transcript_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (video_id, title, upload_date, duration_seconds,
-             episode_number, json.dumps(transcript)),
+            (title, episode_date, filename, uploaded_at,
+             duration_seconds, episode_number, json.dumps(transcript)),
         )
         self._con.commit()
+        return cur.lastrowid
 
-    def episode_exists(self, video_id: str) -> bool:
+    def delete_episode(self, episode_id: int) -> bool:
+        """Delete an episode and all its frequency data. Returns True if found."""
         row = self._con.execute(
-            "SELECT 1 FROM episodes WHERE video_id = ?", (video_id,)
+            "SELECT id FROM episodes WHERE id = ?", (episode_id,)
         ).fetchone()
-        return row is not None
+        if row is None:
+            return False
+        self._con.executescript(f"""
+            DELETE FROM word_frequencies   WHERE episode_id = {episode_id};
+            DELETE FROM minute_frequencies WHERE episode_id = {episode_id};
+            DELETE FROM episodes           WHERE id         = {episode_id};
+        """)
+        self._con.commit()
+        return True
 
-    def get_episode(self, video_id: str) -> Optional[dict]:
+    def get_episode(self, episode_id: int) -> Optional[dict]:
         row = self._con.execute(
-            "SELECT * FROM episodes WHERE video_id = ?", (video_id,)
+            "SELECT * FROM episodes WHERE id = ?", (episode_id,)
         ).fetchone()
         return dict(row) if row else None
 
     def get_all_episodes(self, limit: int = 0) -> list[dict]:
-        """Return episodes ordered newest-first (by upload_date then episode_number)."""
+        """Return episodes ordered newest-first (by episode_date then id)."""
         sql = """
             SELECT * FROM episodes
-            ORDER BY upload_date DESC, episode_number DESC
+            ORDER BY episode_date DESC NULLS LAST, id DESC
         """
         if limit:
             sql += f" LIMIT {limit}"
         rows = self._con.execute(sql).fetchall()
         return [dict(r) for r in rows]
 
-    def get_recent_episode_ids(self, n: int) -> list[str]:
-        rows = self._con.execute(
-            """
-            SELECT video_id FROM episodes
-            ORDER BY upload_date DESC, episode_number DESC
-            LIMIT ?
-            """,
-            (n,),
-        ).fetchall()
-        return [r["video_id"] for r in rows]
-
-    def mark_indexed(self, video_id: str) -> None:
+    def mark_indexed(self, episode_id: int) -> None:
         now = datetime.now(timezone.utc).isoformat()
         self._con.execute(
-            "UPDATE episodes SET indexed_at = ? WHERE video_id = ?",
-            (now, video_id),
+            "UPDATE episodes SET indexed_at = ? WHERE id = ?",
+            (now, episode_id),
         )
         self._con.commit()
 
@@ -166,31 +164,31 @@ class Database:
     # Word frequencies
     # ------------------------------------------------------------------
 
-    def upsert_word_frequencies(self, video_id: str, freq: dict[str, int]) -> None:
+    def upsert_word_frequencies(self, episode_id: int, freq: dict[str, int]) -> None:
         """Bulk-insert / replace per-episode word counts."""
         self._con.executemany(
             """
-            INSERT INTO word_frequencies (video_id, word, count)
+            INSERT INTO word_frequencies (episode_id, word, count)
             VALUES (?, ?, ?)
-            ON CONFLICT(video_id, word) DO UPDATE SET count = excluded.count
+            ON CONFLICT(episode_id, word) DO UPDATE SET count = excluded.count
             """,
-            [(video_id, word, count) for word, count in freq.items()],
+            [(episode_id, word, count) for word, count in freq.items()],
         )
         self._con.commit()
 
     def upsert_minute_frequencies(
-        self, video_id: str, minute_freq: dict[int, dict[str, int]]
+        self, episode_id: int, minute_freq: dict[int, dict[str, int]]
     ) -> None:
         """minute_freq: {minute_int: {word: count}}"""
         rows = []
         for minute, freq in minute_freq.items():
             for word, count in freq.items():
-                rows.append((video_id, minute, word, count))
+                rows.append((episode_id, minute, word, count))
         self._con.executemany(
             """
-            INSERT INTO minute_frequencies (video_id, minute, word, count)
+            INSERT INTO minute_frequencies (episode_id, minute, word, count)
             VALUES (?, ?, ?, ?)
-            ON CONFLICT(video_id, minute, word) DO UPDATE SET count = excluded.count
+            ON CONFLICT(episode_id, minute, word) DO UPDATE SET count = excluded.count
             """,
             rows,
         )
@@ -200,63 +198,98 @@ class Database:
     # Search queries
     # ------------------------------------------------------------------
 
-    def search_word_by_episode(self, word: str) -> list[dict]:
+    def get_words_containing(
+        self,
+        term: str,
+        episode_ids: Optional[list[int]] = None,
+    ) -> list[dict]:
         """
-        Return per-episode frequency for `word`, ordered newest-first.
-        Each row: video_id, title, upload_date, episode_number, count, duration_seconds
+        Return all word_frequencies rows where the word equals, starts with,
+        or contains `term`.  The caller filters using is_valid_match().
+
+        Returns rows: episode_id, word, count (plus episode metadata).
         """
-        word = word.lower()
-        rows = self._con.execute(
+        term = term.lower()
+        like_pat = f"%{term}%"
+
+        if episode_ids is not None:
+            placeholders = ",".join("?" * len(episode_ids))
+            sql = f"""
+                SELECT e.id          AS episode_id,
+                       e.title,
+                       e.episode_date,
+                       e.episode_number,
+                       e.duration_seconds,
+                       wf.word,
+                       wf.count
+                FROM word_frequencies wf
+                JOIN episodes e ON e.id = wf.episode_id
+                WHERE wf.word LIKE ?
+                  AND e.id IN ({placeholders})
+                  AND e.indexed_at IS NOT NULL
             """
-            SELECT e.video_id,
-                   e.title,
-                   e.upload_date,
-                   e.episode_number,
-                   e.duration_seconds,
-                   COALESCE(wf.count, 0) AS count
-            FROM episodes e
-            LEFT JOIN word_frequencies wf
-                   ON wf.video_id = e.video_id AND wf.word = ?
-            WHERE e.indexed_at IS NOT NULL
-            ORDER BY e.upload_date DESC, e.episode_number DESC
-            """,
-            (word,),
-        ).fetchall()
+            rows = self._con.execute(sql, [like_pat] + list(episode_ids)).fetchall()
+        else:
+            sql = """
+                SELECT e.id          AS episode_id,
+                       e.title,
+                       e.episode_date,
+                       e.episode_number,
+                       e.duration_seconds,
+                       wf.word,
+                       wf.count
+                FROM word_frequencies wf
+                JOIN episodes e ON e.id = wf.episode_id
+                WHERE wf.word LIKE ?
+                  AND e.indexed_at IS NOT NULL
+            """
+            rows = self._con.execute(sql, (like_pat,)).fetchall()
+
         return [dict(r) for r in rows]
 
-    def search_word_by_minute(self, word: str, video_id: str) -> list[dict]:
+    def get_episode_list_indexed(
+        self, episode_ids: Optional[list[int]] = None
+    ) -> list[dict]:
+        """Return metadata for all indexed episodes (or a subset), newest-first."""
+        if episode_ids is not None:
+            placeholders = ",".join("?" * len(episode_ids))
+            sql = f"""
+                SELECT id, title, episode_date, episode_number, duration_seconds
+                FROM episodes
+                WHERE indexed_at IS NOT NULL AND id IN ({placeholders})
+                ORDER BY episode_date DESC NULLS LAST, id DESC
+            """
+            rows = self._con.execute(sql, list(episode_ids)).fetchall()
+        else:
+            rows = self._con.execute("""
+                SELECT id, title, episode_date, episode_number, duration_seconds
+                FROM episodes
+                WHERE indexed_at IS NOT NULL
+                ORDER BY episode_date DESC NULLS LAST, id DESC
+            """).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_minute_words_containing(
+        self, term: str, episode_id: int
+    ) -> list[dict]:
         """
-        Return per-minute frequency for `word` within a single episode.
-        Each row: minute, count
+        Return per-minute word rows for all words containing `term` in one episode.
+        Returns rows: minute, word, count
         """
-        word = word.lower()
+        like_pat = f"%{term.lower()}%"
         rows = self._con.execute(
             """
-            SELECT minute, count
+            SELECT minute, word, count
             FROM minute_frequencies
-            WHERE video_id = ? AND word = ?
+            WHERE episode_id = ? AND word LIKE ?
             ORDER BY minute
             """,
-            (video_id, word),
+            (episode_id, like_pat),
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_episode_count_for_word(self, word: str, video_id: str) -> int:
-        word = word.lower()
-        row = self._con.execute(
-            "SELECT count FROM word_frequencies WHERE video_id = ? AND word = ?",
-            (video_id, word),
-        ).fetchone()
-        return row["count"] if row else 0
-
     def reset_index(self) -> None:
-        """
-        Drop all word/minute frequency data and clear indexed_at on every
-        episode so index_all() will re-process them.
-
-        Call this after a tokenizer change (e.g. adding stemming) so that
-        the stored frequencies are rebuilt with the new algorithm.
-        """
+        """Drop all frequency data and clear indexed_at so episodes get re-indexed."""
         self._con.executescript("""
             DELETE FROM word_frequencies;
             DELETE FROM minute_frequencies;
