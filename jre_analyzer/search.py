@@ -121,6 +121,6 @@ def _compute_averages(result: SearchResult) -> None:
 
 def get_minute_breakdown(db: Database, keyword: str, video_id: str) -> list[MinuteResult]:
     """Return per-minute counts for a keyword within a specific episode."""
-    keyword = keyword.strip().lower()
+    keyword = stem_word(keyword.strip().lower())
     rows = db.search_word_by_minute(keyword, video_id)
     return [MinuteResult(minute=r["minute"], count=r["count"]) for r in rows]
