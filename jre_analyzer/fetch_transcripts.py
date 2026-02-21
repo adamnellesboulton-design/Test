@@ -38,15 +38,24 @@ from xml.etree import ElementTree
 import requests
 
 try:
-    from youtube_transcript_api import (
-        YouTubeTranscriptApi,
-        NoTranscriptFound,
-        TranscriptsDisabled,
-    )
+    from youtube_transcript_api import YouTubeTranscriptApi
     from yt_dlp import YoutubeDL
     HAS_DEPS = True
 except ImportError:
     HAS_DEPS = False
+
+# Error classes moved / changed name between v0.6 and v1.x; import defensively.
+try:
+    from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled
+    _TRANSCRIPT_ERRORS = (NoTranscriptFound, TranscriptsDisabled)
+except ImportError:
+    try:
+        from youtube_transcript_api._errors import (  # type: ignore[import]
+            NoTranscriptFound, TranscriptsDisabled,
+        )
+        _TRANSCRIPT_ERRORS = (NoTranscriptFound, TranscriptsDisabled)
+    except ImportError:
+        _TRANSCRIPT_ERRORS = ()  # fall through to broad except below
 
 from .database import Database
 
@@ -255,25 +264,56 @@ def fetch_transcript(video_id: str, joe_only: bool = True) -> Optional[list[dict
         {"start": float, "duration": float, "text": str}
     or None if no transcript is available.
 
+    Supports both youtube-transcript-api 0.6.x (get_transcript classmethod)
+    and 1.x+ (instance fetch() / to_raw_data()).  The 1.x API became the
+    standard in 2025; get_transcript() was removed in 1.2.0.
+
     When *joe_only* is True (default) the heuristic speaker filter is applied
     so only segments likely spoken by Joe are returned.
     """
     if not HAS_DEPS:
         raise RuntimeError("youtube-transcript-api is not installed.")
 
+    languages = ["en", "en-US", "en-GB"]
+    transcript: Optional[list[dict]] = None
+
+    # ── Try new instance API (>=1.0.0) ───────────────────────────────────────
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(
-            video_id,
-            languages=["en", "en-US", "en-GB"],
-        )
-    except (NoTranscriptFound, TranscriptsDisabled):
+        api = YouTubeTranscriptApi()
+        fetched = api.fetch(video_id, languages=languages)
+        # 1.x returns a FetchedTranscript with to_raw_data() → list[dict]
+        if hasattr(fetched, "to_raw_data"):
+            transcript = fetched.to_raw_data()
+        else:
+            # Some intermediate builds returned an iterable of snippet objects
+            transcript = [
+                {"start": s.start, "duration": s.duration, "text": s.text}
+                for s in fetched
+            ]
+    except _TRANSCRIPT_ERRORS:
         logger.warning("No transcript available for %s", video_id)
         return None
+    except AttributeError:
+        # fetch() doesn't exist → old library version, fall through below
+        pass
     except Exception as exc:
-        logger.error("Error fetching transcript for %s: %s", video_id, exc)
+        logger.error("Transcript fetch (new API) failed for %s: %s", video_id, exc)
         return None
 
-    if joe_only:
+    # ── Fall back to old classmethod API (<1.0.0) ─────────────────────────────
+    if transcript is None:
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(  # type: ignore[attr-defined]
+                video_id, languages=languages
+            )
+        except _TRANSCRIPT_ERRORS:
+            logger.warning("No transcript available for %s", video_id)
+            return None
+        except Exception as exc:
+            logger.error("Transcript fetch (legacy API) failed for %s: %s", video_id, exc)
+            return None
+
+    if joe_only and transcript:
         transcript = filter_joe_segments(transcript)
     return transcript
 
@@ -351,27 +391,36 @@ def filter_joe_segments(transcript: list[dict]) -> list[dict]:
 
 # ── High-level sync ───────────────────────────────────────────────────────────
 
-def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> int:
+def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> dict:
     """
     Fetch the episode list then download missing transcripts.
 
     Only Joe's segments (heuristic filtered) are stored.
-    Returns the number of episodes newly added to the database.
+
+    Returns a summary dict:
+        added          - episodes newly written to DB
+        skipped        - episodes already in DB
+        transcripts_ok - episodes where a real transcript was fetched
+        transcripts_missing - episodes stored with empty transcript
     """
     episodes = fetch_episode_list(max_episodes)
-    added = 0
+    added = skipped = transcripts_ok = transcripts_missing = 0
 
     for ep in episodes:
         video_id = ep["video_id"]
 
         if db.episode_exists(video_id):
             logger.debug("Skipping already-stored episode %s", video_id)
+            skipped += 1
             continue
 
         logger.info("Fetching transcript for %s (%s)", ep["title"], video_id)
         transcript = fetch_transcript(video_id, joe_only=True)
 
-        if transcript is None:
+        if transcript:
+            transcripts_ok += 1
+        else:
+            transcripts_missing += 1
             logger.warning(
                 "No transcript for %s — storing with empty transcript", video_id
             )
@@ -387,8 +436,16 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
         added += 1
         time.sleep(delay)
 
-    logger.info("Sync complete. %d new episodes added.", added)
-    return added
+    logger.info(
+        "Sync complete. added=%d skipped=%d transcripts_ok=%d transcripts_missing=%d",
+        added, skipped, transcripts_ok, transcripts_missing,
+    )
+    return {
+        "added": added,
+        "skipped": skipped,
+        "transcripts_ok": transcripts_ok,
+        "transcripts_missing": transcripts_missing,
+    }
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
