@@ -6,4 +6,6 @@ __pycache__/
 venv/
 # runtime data — user generates these locally
 *.db
+*.db-shm
+*.db-wal
 charts/
