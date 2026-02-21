@@ -11,6 +11,6 @@ COPY . .
 # On Railway, mount a volume to /app/data to persist the DB across deploys.
 ENV DB_PATH=/app/data/jre_data.db
 
-EXPOSE 5000
+EXPOSE ${PORT:-5000}
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "server:app"]
+CMD gunicorn --bind "0.0.0.0:${PORT:-5000}" --workers 2 server:app
