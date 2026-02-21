@@ -140,8 +140,9 @@ main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
   align-items: center;
   gap: 6px;
 }
-.avg-pill .n { color: var(--muted); }
-.avg-pill .v { font-weight: 700; }
+.avg-pill .n  { color: var(--muted); }
+.avg-pill .v  { font-weight: 700; }
+.avg-pill .ci { color: var(--muted); font-size: .75rem; }
 .avg-pill.ep1   .v { color: #fff; }
 .avg-pill.ep5   .v { color: var(--accent2); }
 .avg-pill.ep20  .v { color: #90e0ef; }
@@ -328,7 +329,6 @@ tbody td { padding: 9px 12px; }
   <div class="header-actions">
     <span class="status-dot" id="status-dot"></span>
     <span class="status-text" id="status-text">Loading…</span>
-    <button class="btn btn-secondary" id="demo-btn">Load Demo</button>
     <button class="btn btn-blue" id="sync-btn">Sync YouTube</button>
   </div>
 </header>
@@ -342,10 +342,9 @@ tbody td { padding: 9px 12px; }
       <div class="icon">🎙️</div>
       <h2 style="margin-bottom:10px">No episodes loaded yet</h2>
       <p style="color:var(--muted);margin-bottom:24px">
-        Load 100 synthetic demo episodes instantly, or sync real transcripts from YouTube.
+        Sync real JRE transcripts from YouTube to get started.
       </p>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-primary" id="landing-demo-btn">Load Demo Data</button>
         <button class="btn btn-blue" id="landing-sync-btn">Sync from YouTube</button>
       </div>
     </div>
@@ -403,6 +402,7 @@ tbody td { padding: 9px 12px; }
     <!-- Fair value grid -->
     <div class="card">
       <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
+      <div id="fv-lambda-ci" style="font-size:.8rem;color:var(--muted);margin-bottom:12px"></div>
       <div class="fv-grid" id="fv-grid"></div>
     </div>
 
@@ -422,6 +422,7 @@ tbody td { padding: 9px 12px; }
               <th>Episode</th>
               <th>Date</th>
               <th>Mentions</th>
+              <th>95% CI (Joe-only)</th>
               <th>Per min</th>
               <th>Title</th>
             </tr>
@@ -476,10 +477,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") doSearch();
   });
 
-  // Demo
-  document.getElementById("demo-btn").addEventListener("click", loadDemo);
-  document.getElementById("landing-demo-btn").addEventListener("click", loadDemo);
-
   // Sync
   document.getElementById("sync-btn").addEventListener("click", () => openSyncModal());
   document.getElementById("landing-sync-btn").addEventListener("click", () => openSyncModal());
@@ -525,30 +522,6 @@ function showContent(hasData) {
   // Don't hide results if a search was already done
   if (!hasData) {
     document.getElementById("results").classList.remove("visible");
-  }
-}
-
-// ────────────────────────────────────────────────────────────
-// Demo seed
-// ────────────────────────────────────────────────────────────
-async function loadDemo() {
-  const kw = document.getElementById("search-input").value.trim() || "dmt";
-  toast("Seeding demo data…", "");
-  try {
-    const r = await fetch("/api/seed", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ keyword: kw, episodes: 100 })
-    });
-    const d = await r.json();
-    toast(`Loaded ${d.seeded} demo episodes`, "success");
-    refreshStatus();
-    if (kw) {
-      document.getElementById("search-input").value = kw;
-      doSearch();
-    }
-  } catch (e) {
-    toast("Failed to seed demo data", "error");
   }
 }
 
@@ -618,20 +591,24 @@ function renderResults(data) {
   document.getElementById("stat-avg1").textContent     = fmt(avgs.last_1);
   document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
 
-  // Average pills
+  // Average pills with 95 % CI
   const pillDefs = [
-    {cls:"ep1",   n:"Last 1",   v: avgs.last_1},
-    {cls:"ep5",   n:"Last 5",   v: avgs.last_5},
-    {cls:"ep20",  n:"Last 20",  v: avgs.last_20},
-    {cls:"ep50",  n:"Last 50",  v: avgs.last_50},
-    {cls:"ep100", n:"Last 100", v: avgs.last_100},
+    {cls:"ep1",   n:"Last 1",   v: avgs.last_1,   lo: avgs.last_1_lo,   hi: avgs.last_1_hi},
+    {cls:"ep5",   n:"Last 5",   v: avgs.last_5,   lo: avgs.last_5_lo,   hi: avgs.last_5_hi},
+    {cls:"ep20",  n:"Last 20",  v: avgs.last_20,  lo: avgs.last_20_lo,  hi: avgs.last_20_hi},
+    {cls:"ep50",  n:"Last 50",  v: avgs.last_50,  lo: avgs.last_50_lo,  hi: avgs.last_50_hi},
+    {cls:"ep100", n:"Last 100", v: avgs.last_100, lo: avgs.last_100_lo, hi: avgs.last_100_hi},
   ];
-  document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
-    `<div class="avg-pill ${p.cls}">
+  document.getElementById("avgs-row").innerHTML = pillDefs.map(p => {
+    const ciStr = (p.lo != null && p.hi != null)
+      ? `<span class="ci">[${p.lo.toFixed(1)}–${p.hi.toFixed(1)}]</span>`
+      : "";
+    return `<div class="avg-pill ${p.cls}">
        <span class="n">${p.n}:</span>
        <span class="v">${fmt(p.v)}</span>
-     </div>`
-  ).join("");
+       ${ciStr}
+     </div>`;
+  }).join("");
 
   // Trend chart
   renderTrendChart(eps);
@@ -639,6 +616,12 @@ function renderResults(data) {
   // FV model badge
   document.getElementById("fv-model-badge").textContent =
     { "poisson": "Poisson", "empirical": "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
+
+  // λ CI note (speaker-filter corrected)
+  if (fv.lambda_ci_lo != null && fv.lambda_ci_hi != null) {
+    document.getElementById("fv-lambda-ci").textContent =
+      `λ = ${fv.lambda.toFixed(2)}  |  95 % CI on true Joe count: [${fv.lambda_ci_lo.toFixed(2)}, ${fv.lambda_ci_hi.toFixed(2)}]  (±35 % speaker-filter uncertainty)`;
+  }
 
   // FV chart
   renderFVChart(fv);
@@ -805,12 +788,16 @@ function renderTable(episodes) {
     const badge = ep.count > 0
       ? `<span class="count-badge">${ep.count}</span>`
       : `<span class="count-badge zero">0</span>`;
+    const ci = (ep.count_lo != null && ep.count_hi != null)
+      ? `<span class="per-min">[${ep.count_lo.toFixed(1)}–${ep.count_hi.toFixed(1)}]</span>`
+      : "—";
     const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
     const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
     return `<tr data-vid="${ep.video_id}">
       <td class="ep-num">${num}</td>
       <td>${ep.upload_date || "—"}</td>
       <td>${badge}</td>
+      <td>${ci}</td>
       <td>${pm}</td>
       <td>${title}</td>
     </tr>`;
