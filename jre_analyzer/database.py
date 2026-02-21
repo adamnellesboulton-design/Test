@@ -249,6 +249,22 @@ class Database:
         ).fetchone()
         return row["count"] if row else 0
 
+    def reset_index(self) -> None:
+        """
+        Drop all word/minute frequency data and clear indexed_at on every
+        episode so index_all() will re-process them.
+
+        Call this after a tokenizer change (e.g. adding stemming) so that
+        the stored frequencies are rebuilt with the new algorithm.
+        """
+        self._con.executescript("""
+            DELETE FROM word_frequencies;
+            DELETE FROM minute_frequencies;
+            UPDATE episodes SET indexed_at = NULL;
+        """)
+        self._con.commit()
+        logger.info("Frequency index cleared; episodes queued for re-indexing")
+
     def close(self) -> None:
         self._con.close()
 

@@ -209,6 +209,21 @@ def api_search():
     })
 
 
+# ── API: reindex ─────────────────────────────────────────────────────────────
+
+@app.route("/api/reindex", methods=["POST"])
+def api_reindex():
+    """
+    Clear all frequency data and rebuild the index from stored transcripts.
+
+    Needed any time the tokenizer changes (e.g. after adding stemming), so
+    that searched keywords match what is actually stored in the DB.
+    """
+    db.reset_index()
+    indexed = index_all(db)
+    return jsonify({"reindexed": indexed})
+
+
 # ── API: per-minute breakdown ────────────────────────────────────────────────
 
 @app.route("/api/minutes")
