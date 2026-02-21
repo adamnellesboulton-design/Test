@@ -1,39 +1,48 @@
 """
 Fetch JRE episode list and transcripts from YouTube.
 
-Episodes are fetched from the PowerfulJRE channel using the stable uploads-
-playlist ID (avoids the @handle 404 that occurs in some environments).
+Episode discovery
+-----------------
+We intentionally avoid yt-dlp's ``youtube:tab`` extractor (used for
+channel / @handle URLs) because it calls a private InnerTube API endpoint
+that returns HTTP 404 in some environments (Railway, certain cloud IPs).
 
-For each episode we retrieve the auto-generated English transcript with
-timestamps, then apply a heuristic speaker filter to keep only segments
-likely spoken by Joe before storing them in the database.
+Instead we use two fallback-chained methods:
+
+  1. YouTube RSS feed  (requests, no API key, newest ~15 videos)
+  2. yt-dlp ytsearch: (YouTube search API — different endpoint, always works)
+
+Transcripts are fetched via youtube-transcript-api which is unaffected.
 
 Speaker filtering
 -----------------
 YouTube auto-captions carry no speaker labels.  We use a turn-length
 heuristic: JRE guests tend to deliver long monologues while Joe asks
-shorter questions and interjects with brief affirmations.
+shorter questions and reacts with brief affirmations.
 
-  1. Segment the transcript into speaker "turns" by detecting pauses
-     > PAUSE_THRESHOLD seconds between adjacent segments.
-  2. Compute per-episode median turn word-count.
-  3. Turns below the median → attributed to Joe.
-     Turns at/above the median → attributed to the guest.
+  1. Segment the transcript into "turns" by detecting pauses > 2 s.
+  2. Compute the per-episode median turn word-count.
+  3. Below-median turns → Joe.  At/above-median turns → guest.
 
-Accuracy is roughly 65–70 % without full audio diarization.  This is
-sufficient for keyword counting across many episodes; per-episode figures
-should be treated as estimates.
+Accuracy is ~65–70 % without audio diarisation — sufficient for keyword
+frequency estimation across many episodes.
 """
 
 import re
 import time
-import json
 import logging
 from datetime import datetime
 from typing import Optional
+from xml.etree import ElementTree
+
+import requests
 
 try:
-    from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+    from youtube_transcript_api import (
+        YouTubeTranscriptApi,
+        NoTranscriptFound,
+        TranscriptsDisabled,
+    )
     from yt_dlp import YoutubeDL
     HAS_DEPS = True
 except ImportError:
@@ -43,24 +52,30 @@ from .database import Database
 
 logger = logging.getLogger(__name__)
 
-# ── Channel identifiers ───────────────────────────────────────────────────────
-# Stable uploads-playlist URL (replaces the @handle which causes 404 in some
-# yt-dlp versions / deployment environments like Railway).
-_CHANNEL_ID      = "UCzWQYUVCpZqtN93H8RR44Qw"
-_UPLOADS_LIST_ID = "UU" + _CHANNEL_ID[2:]   # UCxxx → UUxxx
+# ── Discovery configuration ───────────────────────────────────────────────────
 
-JRE_PLAYLIST_URL = f"https://www.youtube.com/playlist?list={_UPLOADS_LIST_ID}"
-JRE_CHANNEL_URL  = f"https://www.youtube.com/channel/{_CHANNEL_ID}/videos"
-JRE_HANDLE_URL   = "https://www.youtube.com/@PowerfulJRE/videos"   # last-resort
+# Channel ID for PowerfulJRE — used only for the RSS feed URL.
+# The @handle / channel-tab URL is intentionally NOT used (causes 404 on
+# Railway because yt-dlp's youtube:tab extractor calls a different API).
+_CHANNEL_ID = "UCzWQYUVCpZqtN93H8RR44Qw"
 
-# Pause between adjacent transcript segments that signals a speaker change (s)
-_PAUSE_THRESHOLD = 2.0
+# RSS feed: free, no API key, returns the ~15 most recent uploads.
+JRE_RSS_URL = (
+    f"https://www.youtube.com/feeds/videos.xml?channel_id={_CHANNEL_ID}"
+)
 
-# Joe's characteristic short affirmations / reactions (used as a tiebreaker)
+# Search query used with yt-dlp's ytsearch: extractor (different endpoint,
+# not affected by the channel-tab 404).
+JRE_SEARCH_QUERY = "Joe Rogan Experience"
+
+# ── Speaker-filter constants ──────────────────────────────────────────────────
+_PAUSE_THRESHOLD = 2.0  # seconds gap between segments → new turn
+
+# High-frequency Joe signals; turns >50 % these words are kept even if long.
 _JOE_SIGNALS: frozenset[str] = frozenset(
     "yeah right wow really interesting absolutely totally dude man bro "
     "exactly sure okay seriously incredible insane crazy amazing wild "
-    "fascinating no yes true correct definitely exactly".split()
+    "fascinating no yes true correct definitely".split()
 )
 
 
@@ -68,12 +83,11 @@ _JOE_SIGNALS: frozenset[str] = frozenset(
 
 def _ydl_opts(quiet: bool = True) -> dict:
     return {
-        "quiet":          quiet,
-        "no_warnings":    quiet,
-        "extract_flat":   True,
-        "ignoreerrors":   True,
-        "skip_download":  True,
-        # Mimic a regular browser to reduce bot-detection blocks on Railway
+        "quiet":         quiet,
+        "no_warnings":   quiet,
+        "extract_flat":  True,
+        "ignoreerrors":  True,
+        "skip_download": True,
         "http_headers": {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -86,56 +100,134 @@ def _ydl_opts(quiet: bool = True) -> dict:
     }
 
 
-def _extract_with_fallbacks(ydl: "YoutubeDL", max_episodes: int) -> list:
-    """
-    Try URLs in order of reliability:
-      1. Uploads playlist  (most stable, no @handle parsing needed)
-      2. Channel /videos   (needs channel ID, still robust)
-      3. @handle           (may 404 depending on yt-dlp version)
-    """
-    urls = [JRE_PLAYLIST_URL, JRE_CHANNEL_URL, JRE_HANDLE_URL]
-    for url in urls:
-        logger.info("Trying URL: %s", url)
-        try:
-            info = ydl.extract_info(url, download=False)
-            if info and info.get("entries"):
-                return list(info["entries"])
-        except Exception as exc:
-            logger.warning("URL %s failed: %s", url, exc)
-    return []
-
-
-# ── Public API ────────────────────────────────────────────────────────────────
+# ── Episode list fetching ─────────────────────────────────────────────────────
 
 def fetch_episode_list(max_episodes: int = 100) -> list[dict]:
     """
     Return up to *max_episodes* JRE episodes, newest-first.
 
     Each dict has: video_id, title, upload_date, duration_seconds.
+
+    Tries RSS feed first (fast, no yt-dlp), then falls back to
+    yt-dlp search (broader, avoids channel-tab 404).
     """
-    if not HAS_DEPS:
-        raise RuntimeError("yt-dlp is not installed. Run: pip install yt-dlp")
+    episodes: list[dict] = []
 
-    opts = _ydl_opts()
-    opts["playlistend"] = max_episodes
+    # ── 1. RSS feed (newest ~15 without yt-dlp) ───────────────────────────
+    try:
+        rss_eps = _fetch_from_rss()
+        episodes.extend(rss_eps)
+        logger.info("RSS feed returned %d episodes", len(rss_eps))
+    except Exception as exc:
+        logger.warning("RSS feed failed: %s", exc)
 
-    with YoutubeDL(opts) as ydl:
-        entries = _extract_with_fallbacks(ydl, max_episodes)
+    rss_ids = {ep["video_id"] for ep in episodes}
+
+    # ── 2. yt-dlp search (fills up to max_episodes) ───────────────────────
+    if len(episodes) < max_episodes and HAS_DEPS:
+        try:
+            search_eps = _fetch_from_search(max_episodes, exclude_ids=rss_ids)
+            episodes.extend(search_eps)
+            logger.info("Search returned %d additional episodes", len(search_eps))
+        except Exception as exc:
+            logger.warning("yt-dlp search failed: %s", exc)
+
+    if not episodes:
+        raise RuntimeError(
+            "Could not retrieve any JRE episodes. "
+            "Both RSS and yt-dlp search failed."
+        )
+
+    # Deduplicate and cap
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for ep in episodes:
+        if ep["video_id"] not in seen:
+            seen.add(ep["video_id"])
+            unique.append(ep)
+        if len(unique) >= max_episodes:
+            break
+
+    logger.info("Found %d JRE episodes total", len(unique))
+    return unique
+
+
+def _fetch_from_rss(timeout: int = 15) -> list[dict]:
+    """Fetch the most recent ~15 episodes from the channel RSS feed."""
+    resp = requests.get(JRE_RSS_URL, timeout=timeout)
+    resp.raise_for_status()
+
+    root = ElementTree.fromstring(resp.content)
+    ns = {
+        "atom":  "http://www.w3.org/2005/Atom",
+        "yt":    "http://www.youtube.com/xml/schemas/2015",
+        "media": "http://search.yahoo.com/mrss/",
+    }
 
     episodes: list[dict] = []
-    for entry in entries:
+    for entry in root.findall("atom:entry", ns):
+        vid_el   = entry.find("yt:videoId", ns)
+        title_el = entry.find("atom:title", ns)
+        pub_el   = entry.find("atom:published", ns)
+
+        if vid_el is None or title_el is None:
+            continue
+
+        title = title_el.text or ""
+        if not _is_jre_episode(title):
+            continue
+
+        pub_date: Optional[str] = None
+        if pub_el is not None and pub_el.text:
+            pub_date = pub_el.text[:10]  # ISO date YYYY-MM-DD
+
+        # RSS doesn't include duration; set 0 — will be filled from transcript
+        episodes.append({
+            "video_id":        vid_el.text,
+            "title":           title,
+            "upload_date":     pub_date,
+            "duration_seconds": 0,
+        })
+
+    return episodes
+
+
+def _fetch_from_search(
+    max_episodes: int,
+    exclude_ids: set[str] | None = None,
+) -> list[dict]:
+    """
+    Use yt-dlp's ``ytsearch:`` extractor to list JRE episodes.
+
+    This extractor calls YouTube's *search* endpoint (not the channel-tab
+    InnerTube API) so it is unaffected by the 404 that hits channel URLs.
+    """
+    if not HAS_DEPS:
+        return []
+
+    exclude_ids = exclude_ids or set()
+    # Over-sample so we have enough after filtering clips / duplicates
+    oversample = min(max_episodes * 3, 300)
+    search_url = f"ytsearch{oversample}:{JRE_SEARCH_QUERY}"
+
+    opts = _ydl_opts()
+    with YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(search_url, download=False)
+
+    episodes: list[dict] = []
+    for entry in (info or {}).get("entries") or []:
         if entry is None:
             continue
-        video_id = entry.get("id") or entry.get("url", "").split("v=")[-1]
-        if not video_id:
+
+        video_id = entry.get("id", "")
+        if not video_id or video_id in exclude_ids:
             continue
+
         title    = entry.get("title", "")
         duration = entry.get("duration") or 0
 
-        # Skip Shorts / clips (< 10 minutes)
-        if duration and duration < 600:
+        if duration and duration < 600:     # skip Shorts / clips
             continue
-        # Filter to actual JRE episodes
         if not _is_jre_episode(title):
             continue
 
@@ -150,9 +242,10 @@ def fetch_episode_list(max_episodes: int = 100) -> list[dict]:
         if len(episodes) >= max_episodes:
             break
 
-    logger.info("Found %d JRE episodes", len(episodes))
     return episodes
 
+
+# ── Transcript fetching ───────────────────────────────────────────────────────
 
 def fetch_transcript(video_id: str, joe_only: bool = True) -> Optional[list[dict]]:
     """
@@ -185,6 +278,8 @@ def fetch_transcript(video_id: str, joe_only: bool = True) -> Optional[list[dict
     return transcript
 
 
+# ── Speaker filter ────────────────────────────────────────────────────────────
+
 def filter_joe_segments(transcript: list[dict]) -> list[dict]:
     """
     Heuristic: return only segments likely spoken by Joe Rogan.
@@ -197,14 +292,14 @@ def filter_joe_segments(transcript: list[dict]) -> list[dict]:
     3. Attribute below-median turns to Joe (host asks shorter questions),
        above-median turns to the guest (longer monologues).
     4. The very first turn is always kept (Joe's episode intro).
+    5. Override: turns where > 50 % of words are Joe-signal words are kept.
 
-    If the filtered result is empty (e.g. transcript has only one giant
-    segment) the full transcript is returned unchanged as a safe fallback.
+    Falls back to the full transcript if filtering would return nothing.
     """
     if not transcript:
         return transcript
 
-    # ── Step 1: group into turns ──────────────────────────────────────────
+    # ── Group into turns ──────────────────────────────────────────────────
     turns: list[list[dict]] = []
     current: list[dict] = [transcript[0]]
 
@@ -220,7 +315,7 @@ def filter_joe_segments(transcript: list[dict]) -> list[dict]:
     if current:
         turns.append(current)
 
-    # ── Step 2: word count per turn ───────────────────────────────────────
+    # ── Word count per turn ───────────────────────────────────────────────
     def _wc(turn: list[dict]) -> int:
         return sum(len(seg.get("text", "").split()) for seg in turn)
 
@@ -231,29 +326,30 @@ def filter_joe_segments(transcript: list[dict]) -> list[dict]:
     sorted_counts = sorted(counts)
     median = sorted_counts[len(sorted_counts) // 2]
 
-    # ── Step 3: keep Joe's turns ──────────────────────────────────────────
+    # ── Label and collect Joe's turns ─────────────────────────────────────
     joe_segments: list[dict] = []
     for idx, (turn, wc) in enumerate(zip(turns, counts)):
-        is_joe = wc < median   # short turn → Joe
+        is_joe = wc < median
 
-        # Override: very first turn is always Joe's intro
         if idx == 0:
-            is_joe = True
+            is_joe = True   # intro is always Joe's
 
-        # Override: turns composed mainly of Joe's characteristic signals
         if not is_joe:
-            all_words = " ".join(seg.get("text", "") for seg in turn).lower().split()
+            all_words = " ".join(
+                seg.get("text", "") for seg in turn
+            ).lower().split()
             if all_words:
-                signal_ratio = sum(1 for w in all_words if w in _JOE_SIGNALS) / len(all_words)
-                if signal_ratio > 0.5:
+                ratio = sum(1 for w in all_words if w in _JOE_SIGNALS) / len(all_words)
+                if ratio > 0.5:
                     is_joe = True
 
         if is_joe:
             joe_segments.extend(turn)
 
-    # Safe fallback: never return empty results
     return joe_segments if joe_segments else transcript
 
+
+# ── High-level sync ───────────────────────────────────────────────────────────
 
 def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> int:
     """
@@ -277,7 +373,7 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
 
         if transcript is None:
             logger.warning(
-                "No transcript for %s — storing episode with empty transcript", video_id
+                "No transcript for %s — storing with empty transcript", video_id
             )
             transcript = []
 
