@@ -5,13 +5,21 @@ Flask web server for the JRE Transcript Analyzer.
 Run:
     python server.py
 Then open: http://localhost:5000
+
+Auto-sync
+---------
+A background thread fires every day at 12:00 UTC (one hour after the YouTube
+transcript rate-limit resets at 11 am UTC).  It fetches the most recent
+episodes that are not yet in the database, so the data stays current without
+any manual intervention.
 """
 
 from __future__ import annotations
 
-import json
 import math
 import threading
+import time as _time
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -26,99 +34,173 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DB_PATH = Path("jre_data.db")
 db = Database(db_path=DB_PATH)
 
-# Track background sync state
-_sync_status = {"running": False, "message": "Idle", "added": 0, "rate_limited": False}
+# ── Sync state ───────────────────────────────────────────────────────────────
+
+_sync_status: dict = {
+    "running":      False,
+    "message":      "Idle",
+    "added":        0,
+    "rate_limited": False,
+}
 _sync_lock = threading.Lock()
 
+# How many episodes the daily auto-sync fetches.  Already-stored episodes are
+# skipped, so this just needs to be larger than the typical daily release count
+# (JRE publishes 3–5 episodes per week).
+_AUTO_SYNC_EPISODES = 20
 
-# ── Static files ────────────────────────────────────────────────────────────
+
+# ── Shared sync helper ───────────────────────────────────────────────────────
+
+def _run_sync(n: int, label: str = "Sync") -> None:
+    """
+    Fetch up to *n* episodes and index them.  Must be called from a thread
+    that has already set ``_sync_status["running"] = True``.
+    """
+    from jre_analyzer.fetch_transcripts import sync_episodes
+
+    try:
+        summary = sync_episodes(db, max_episodes=n)
+        indexed = index_all(db)
+        with _sync_lock:
+            _sync_status["added"]               = summary["added"]
+            _sync_status["transcripts_ok"]      = summary["transcripts_ok"]
+            _sync_status["transcripts_missing"] = summary["transcripts_missing"]
+            _sync_status["rate_limited"]        = summary.get("rate_limited", False)
+            if summary.get("rate_limited"):
+                _sync_status["message"] = (
+                    f"{label}: YouTube rate-limit after {summary['added']} episodes "
+                    f"({summary['transcripts_ok']} with transcripts). "
+                    f"Indexed {indexed}. Will retry tomorrow at noon UTC."
+                )
+            else:
+                _sync_status["message"] = (
+                    f"{label}: {summary['added']} new episodes added "
+                    f"({summary['transcripts_ok']} with transcripts, "
+                    f"{summary['transcripts_missing']} missing), "
+                    f"{indexed} indexed."
+                )
+    except Exception as exc:
+        with _sync_lock:
+            _sync_status["message"] = f"{label} error: {exc}"
+    finally:
+        with _sync_lock:
+            _sync_status["running"] = False
+
+
+# ── Daily auto-sync scheduler ────────────────────────────────────────────────
+
+def _seconds_until_noon_utc() -> float:
+    """Return seconds until the next 12:00:00 UTC."""
+    now  = datetime.now(timezone.utc)
+    noon = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    if now >= noon:
+        noon += timedelta(days=1)
+    return (noon - now).total_seconds()
+
+
+def _next_noon_utc() -> datetime:
+    now  = datetime.now(timezone.utc)
+    noon = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    if now >= noon:
+        noon += timedelta(days=1)
+    return noon
+
+
+def _auto_sync_loop() -> None:
+    """Daemon thread: trigger a sync every day at 12:00 UTC."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    while True:
+        wait = _seconds_until_noon_utc()
+        next_dt = _next_noon_utc().strftime("%Y-%m-%d %H:%M UTC")
+        logger.info("Auto-sync: next run at %s (in %.0f s)", next_dt, wait)
+        _time.sleep(wait)
+
+        with _sync_lock:
+            if _sync_status["running"]:
+                logger.info("Auto-sync: skipping — a sync is already running")
+                continue
+            _sync_status["running"] = True
+            _sync_status["message"] = (
+                f"Auto-sync: fetching up to {_AUTO_SYNC_EPISODES} new episodes…"
+            )
+            _sync_status["added"] = 0
+
+        logger.info("Auto-sync: starting daily fetch (%d episodes)", _AUTO_SYNC_EPISODES)
+        _run_sync(_AUTO_SYNC_EPISODES, label="Auto-sync")
+        logger.info("Auto-sync: finished — %s", _sync_status["message"])
+
+
+# Start the scheduler as soon as the module loads (survives Flask reloads
+# because we guard with use_reloader=False at the bottom).
+_scheduler_thread = threading.Thread(
+    target=_auto_sync_loop, daemon=True, name="auto-sync-scheduler"
+)
+_scheduler_thread.start()
+
+
+# ── Static files ─────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
 
 
-# ── API: status ─────────────────────────────────────────────────────────────
+# ── API: status ──────────────────────────────────────────────────────────────
 
 @app.route("/api/status")
 def api_status():
-    total = db.count_episodes()
-    eps = db.get_all_episodes(limit=1)
+    total  = db.count_episodes()
+    eps    = db.get_all_episodes(limit=1)
     latest = eps[0] if eps else None
     return jsonify({
-        "total_episodes": total,
-        "latest_episode": latest["title"] if latest else None,
-        "latest_date": latest["upload_date"] if latest else None,
-        "sync": _sync_status,
+        "total_episodes":  total,
+        "latest_episode":  latest["title"]       if latest else None,
+        "latest_date":     latest["upload_date"]  if latest else None,
+        "sync":            _sync_status,
+        "next_auto_sync":  _next_noon_utc().strftime("%Y-%m-%d %H:%M UTC"),
     })
 
 
-# ── API: sync ────────────────────────────────────────────────────────────────
+# ── API: sync (manual trigger) ───────────────────────────────────────────────
 
 @app.route("/api/sync", methods=["POST"])
 def api_sync():
     with _sync_lock:
         if _sync_status["running"]:
             return jsonify({"error": "Sync already running"}), 409
+        n = request.json.get("episodes", 100) if request.json else 100
+        _sync_status["running"] = True
+        _sync_status["message"] = f"Fetching up to {n} episodes…"
+        _sync_status["added"]   = 0
 
-    n = request.json.get("episodes", 100) if request.json else 100
-
-    def _run():
-        with _sync_lock:
-            _sync_status["running"] = True
-            _sync_status["message"] = f"Fetching up to {n} episodes…"
-            _sync_status["added"] = 0
-        try:
-            from jre_analyzer.fetch_transcripts import sync_episodes
-            summary = sync_episodes(db, max_episodes=n)
-            indexed = index_all(db)
-            with _sync_lock:
-                _sync_status["added"] = summary["added"]
-                _sync_status["transcripts_ok"] = summary["transcripts_ok"]
-                _sync_status["transcripts_missing"] = summary["transcripts_missing"]
-                _sync_status["rate_limited"] = summary.get("rate_limited", False)
-                if summary.get("rate_limited"):
-                    _sync_status["message"] = (
-                        f"YouTube rate-limit hit after {summary['added']} episodes "
-                        f"({summary['transcripts_ok']} with transcripts). "
-                        f"Indexed {indexed}. Re-run sync after 11 am UTC to continue."
-                    )
-                else:
-                    _sync_status["message"] = (
-                        f"Done. {summary['added']} new episodes added "
-                        f"({summary['transcripts_ok']} with transcripts, "
-                        f"{summary['transcripts_missing']} missing), "
-                        f"{indexed} indexed."
-                    )
-        except Exception as exc:
-            with _sync_lock:
-                _sync_status["message"] = f"Error: {exc}"
-        finally:
-            with _sync_lock:
-                _sync_status["running"] = False
-
-    t = threading.Thread(target=_run, daemon=True)
+    t = threading.Thread(target=_run_sync, args=(n, "Sync"), daemon=True)
     t.start()
     return jsonify({"started": True})
 
 
-# ── API: seed demo data ──────────────────────────────────────────────────────
+# ── API: seed demo data ───────────────────────────────────────────────────────
 
 @app.route("/api/seed", methods=["POST"])
 def api_seed():
     """Seed the DB with synthetic demo data (no YouTube needed)."""
     import random, math as _math
-    from datetime import date, timedelta
+    from datetime import date, timedelta as _td
 
     random.seed(42)
     keyword = (request.json or {}).get("keyword", "dmt")
-    n = (request.json or {}).get("episodes", 100)
+    n       = (request.json or {}).get("episodes", 100)
 
     def _make_transcript(kw, count, dur_min=180):
         segs, t = [], 0.0
         dur_sec = dur_min * 60
-        times = set(int(random.uniform(0, dur_sec)) for _ in range(count))
-        filler = "yeah man that is like you know interesting right think really people the a because so and but what joe rogan".split()
+        times   = set(int(random.uniform(0, dur_sec)) for _ in range(count))
+        filler  = (
+            "yeah man that is like you know interesting right think really "
+            "people the a because so and but what joe rogan"
+        ).split()
         while t < dur_sec:
             words = random.choices(filler, k=10)
             if int(t) in times:
@@ -129,19 +211,19 @@ def api_seed():
 
     for i in range(n):
         ep_num = 2200 - i
-        spike = random.random() < 0.08
-        count = random.randint(8, 20) if spike else max(0, int(random.gauss(3.0, _math.sqrt(3.0))))
-        dur = random.randint(120, 240)
-        vid = f"demo_{ep_num:04d}"
-        title = f"Joe Rogan Experience #{ep_num}"
-        ep_date = (date(2025, 1, 15) - timedelta(weeks=i)).strftime("%Y-%m-%d")
+        spike  = random.random() < 0.08
+        count  = random.randint(8, 20) if spike else max(0, int(random.gauss(3.0, _math.sqrt(3.0))))
+        dur    = random.randint(120, 240)
+        vid    = f"demo_{ep_num:04d}"
+        title  = f"Joe Rogan Experience #{ep_num}"
+        ep_date = (date(2025, 1, 15) - _td(weeks=i)).strftime("%Y-%m-%d")
         db.upsert_episode(vid, title, ep_date, dur * 60, _make_transcript(keyword, count, dur))
 
     indexed = index_all(db)
     return jsonify({"seeded": n, "indexed": indexed, "keyword": keyword})
 
 
-# ── API: search ──────────────────────────────────────────────────────────────
+# ── API: search ───────────────────────────────────────────────────────────────
 
 @app.route("/api/search")
 def api_search():
@@ -150,17 +232,17 @@ def api_search():
         return jsonify({"error": "keyword required"}), 400
 
     lookback = int(request.args.get("lookback", 20))
-    result = search(db, keyword)
+    result   = search(db, keyword)
 
     episodes = [
         {
-            "video_id":       ep.video_id,
-            "title":          ep.title,
-            "upload_date":    ep.upload_date,
-            "episode_number": ep.episode_number,
+            "video_id":         ep.video_id,
+            "title":            ep.title,
+            "upload_date":      ep.upload_date,
+            "episode_number":   ep.episode_number,
             "duration_seconds": ep.duration_seconds,
-            "count":          ep.count,
-            "per_minute":     round(ep.per_minute, 4),
+            "count":            ep.count,
+            "per_minute":       round(ep.per_minute, 4),
         }
         for ep in result.episodes
     ]
@@ -184,7 +266,7 @@ def api_search():
         "last_100": _r(result.avg_pm_last_100),
     }
 
-    fv = calculate_fair_value(result, lookback=lookback)
+    fv      = calculate_fair_value(result, lookback=lookback)
     rec_pmf = recommended_pmf(fv)
     rec_sf  = recommended_sf(fv)
 
@@ -192,17 +274,19 @@ def api_search():
         "lambda":            round(fv.lambda_estimate, 4),
         "mean":              round(fv.mean, 4),
         "std_dev":           round(math.sqrt(fv.variance), 4),
-        "model":             ("neg-binomial" if fv.overdispersed and fv.negbin_pmf
-                              else ("empirical" if fv.lookback_episodes >= 10 else "poisson")),
+        "model":             (
+            "neg-binomial" if fv.overdispersed and fv.negbin_pmf
+            else ("empirical" if fv.lookback_episodes >= 10 else "poisson")
+        ),
         "lookback_episodes": fv.lookback_episodes,
         "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [
             {
-                "n":         k,
-                "label":     f"{k}+" if k == MAX_BUCKET else str(k),
-                "pmf":       round(rec_pmf.get(k, 0), 6),
-                "sf":        round(rec_sf.get(k, 0), 6),
-                "pct":       round(rec_sf.get(k, 0) * 100, 2),
+                "n":     k,
+                "label": f"{k}+" if k == MAX_BUCKET else str(k),
+                "pmf":   round(rec_pmf.get(k, 0), 6),
+                "sf":    round(rec_sf.get(k, 0), 6),
+                "pct":   round(rec_sf.get(k, 0) * 100, 2),
             }
             for k in range(MAX_BUCKET + 1)
         ],
@@ -217,7 +301,7 @@ def api_search():
     })
 
 
-# ── API: reindex ─────────────────────────────────────────────────────────────
+# ── API: reindex ──────────────────────────────────────────────────────────────
 
 @app.route("/api/reindex", methods=["POST"])
 def api_reindex():
@@ -232,7 +316,7 @@ def api_reindex():
     return jsonify({"reindexed": indexed})
 
 
-# ── API: per-minute breakdown ────────────────────────────────────────────────
+# ── API: per-minute breakdown ─────────────────────────────────────────────────
 
 @app.route("/api/minutes")
 def api_minutes():
@@ -241,16 +325,16 @@ def api_minutes():
     if not keyword or not video_id:
         return jsonify({"error": "keyword and video_id required"}), 400
 
-    result = search(db, keyword)
-    ep = result.episode_by_id(video_id)
+    result      = search(db, keyword)
+    ep          = result.episode_by_id(video_id)
     minute_data = get_minute_breakdown(db, keyword, video_id)
 
     if not minute_data:
         return jsonify({"video_id": video_id, "keyword": keyword, "minutes": []})
 
-    minutes = [r.minute for r in minute_data]
+    minutes    = [r.minute for r in minute_data]
     full_range = list(range(min(minutes), max(minutes) + 1))
-    count_map = {r.minute: r.count for r in minute_data}
+    count_map  = {r.minute: r.count for r in minute_data}
 
     return jsonify({
         "video_id": video_id,
@@ -263,8 +347,9 @@ def api_minutes():
     })
 
 
-# ── Run ──────────────────────────────────────────────────────────────────────
+# ── Run ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("JRE Analyzer running at http://localhost:5000")
+    print(f"Next auto-sync: {_next_noon_utc().strftime('%Y-%m-%d %H:%M UTC')}")
     app.run(debug=True, port=5000, use_reloader=False)
