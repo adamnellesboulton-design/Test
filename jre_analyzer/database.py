@@ -44,6 +44,7 @@ DEFAULT_DB_PATH = Path(__file__).parent.parent / "jre_data.db"
 class Database:
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH):
         self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._con = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._con.row_factory = sqlite3.Row
         self._con.execute("PRAGMA journal_mode=WAL")
