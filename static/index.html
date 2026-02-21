@@ -305,15 +305,17 @@ header {
 .avg-pill {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 14px;
+  border-radius: var(--radius);
+  padding: 8px 14px;
   font-size: .82rem;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 88px;
 }
-.avg-pill .n { color: var(--muted); }
-.avg-pill .v { font-weight: 700; }
+.avg-pill .n  { color: var(--muted); font-size: .72rem; }
+.avg-pill .v  { font-weight: 700; font-size: .97rem; }
+.avg-pill .pm { color: var(--muted); font-size: .72rem; }
 .avg-pill.ep1   .v { color: #fff; }
 .avg-pill.ep5   .v { color: var(--accent2); }
 .avg-pill.ep20  .v { color: #90e0ef; }
@@ -951,17 +953,20 @@ function renderResults(data) {
   document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
 
   // Average pills
+  const avgspm = data.averages_per_min;
   const pillDefs = [
-    {cls:"ep1",   n:"Last 1",   v: avgs.last_1},
-    {cls:"ep5",   n:"Last 5",   v: avgs.last_5},
-    {cls:"ep20",  n:"Last 20",  v: avgs.last_20},
-    {cls:"ep50",  n:"Last 50",  v: avgs.last_50},
-    {cls:"ep100", n:"Last 100", v: avgs.last_100},
+    {cls:"ep1",   n:"Last 1",   v: avgs.last_1,   pm: avgspm.last_1},
+    {cls:"ep5",   n:"Last 5",   v: avgs.last_5,   pm: avgspm.last_5},
+    {cls:"ep20",  n:"Last 20",  v: avgs.last_20,  pm: avgspm.last_20},
+    {cls:"ep50",  n:"Last 50",  v: avgs.last_50,  pm: avgspm.last_50},
+    {cls:"ep100", n:"Last 100", v: avgs.last_100, pm: avgspm.last_100},
   ];
+  const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
   document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
     `<div class="avg-pill ${p.cls}">
-       <span class="n">${p.n}:</span>
+       <span class="n">${p.n}</span>
        <span class="v">${fmt(p.v)}</span>
+       <span class="pm">${fmtPm(p.pm)}</span>
      </div>`
   ).join("");
 
