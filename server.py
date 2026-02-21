@@ -141,6 +141,38 @@ _scheduler_thread = threading.Thread(
 _scheduler_thread.start()
 
 
+# ── Startup fill ──────────────────────────────────────────────────────────────
+# If there are fewer than 100 episodes in the DB on first launch, fill up
+# automatically without any user action.
+
+_FILL_TARGET = 100
+
+def _startup_fill() -> None:
+    """On startup, fill the DB up to _FILL_TARGET episodes if needed."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    count = db.count_episodes()
+    if count >= _FILL_TARGET:
+        logger.info("Startup: %d episodes already in DB — no fill needed", count)
+        return
+
+    logger.info("Startup: %d episodes in DB — auto-filling up to %d", count, _FILL_TARGET)
+    with _sync_lock:
+        if _sync_status["running"]:
+            return
+        _sync_status["running"] = True
+        _sync_status["message"] = f"Starting up — fetching episodes from YouTube…"
+        _sync_status["added"]   = 0
+
+    _run_sync(_FILL_TARGET, label="Startup")
+    logger.info("Startup fill complete — %s", _sync_status["message"])
+
+
+_fill_thread = threading.Thread(target=_startup_fill, daemon=True, name="startup-fill")
+_fill_thread.start()
+
+
 # ── Static files ─────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -162,23 +194,6 @@ def api_status():
         "sync":            _sync_status,
         "next_auto_sync":  _next_noon_utc().strftime("%Y-%m-%d %H:%M UTC"),
     })
-
-
-# ── API: sync (manual trigger) ───────────────────────────────────────────────
-
-@app.route("/api/sync", methods=["POST"])
-def api_sync():
-    with _sync_lock:
-        if _sync_status["running"]:
-            return jsonify({"error": "Sync already running"}), 409
-        n = request.json.get("episodes", 100) if request.json else 100
-        _sync_status["running"] = True
-        _sync_status["message"] = f"Fetching up to {n} episodes…"
-        _sync_status["added"]   = 0
-
-    t = threading.Thread(target=_run_sync, args=(n, "Sync"), daemon=True)
-    t.start()
-    return jsonify({"started": True})
 
 
 # ── API: search ───────────────────────────────────────────────────────────────

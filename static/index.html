@@ -241,39 +241,6 @@ tbody td { padding: 9px 12px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Sync modal ── */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.7);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 100;
-  display: none;
-}
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 28px 32px;
-  width: 380px;
-  max-width: 95vw;
-}
-.modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
-.modal p { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
-.modal label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
-.modal input[type=number] {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 9px 12px;
-  color: var(--text);
-  font-size: 1rem;
-  margin-bottom: 20px;
-  outline: none;
-}
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-
 /* ── Lookback selector ── */
 .lookback-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .lookback-row label { font-size: .82rem; color: var(--muted); }
@@ -329,24 +296,18 @@ tbody td { padding: 9px 12px; }
   <div class="header-actions">
     <span class="status-dot" id="status-dot"></span>
     <span class="status-text" id="status-text">Loading…</span>
-    <button class="btn btn-blue" id="sync-btn">Sync YouTube</button>
   </div>
 </header>
 
 <!-- ── Main ── -->
 <main>
 
-  <!-- Landing (empty DB) -->
+  <!-- Landing (empty DB / syncing) -->
   <div id="landing">
     <div class="empty">
-      <div class="icon">🎙️</div>
-      <h2 style="margin-bottom:10px">No episodes loaded yet</h2>
-      <p style="color:var(--muted);margin-bottom:24px">
-        Sync real JRE transcripts from YouTube to get started.
-      </p>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-blue" id="landing-sync-btn">Sync from YouTube</button>
-      </div>
+      <div class="spinner"></div>
+      <h2 style="margin-bottom:10px" id="landing-heading">Fetching episodes…</h2>
+      <p style="color:var(--muted)" id="landing-msg">Pulling transcripts from YouTube. This may take a few minutes.</p>
     </div>
   </div>
 
@@ -436,20 +397,6 @@ tbody td { padding: 9px 12px; }
 </main>
 </div>
 
-<!-- ── Sync Modal ── -->
-<div class="modal-overlay" id="sync-modal">
-  <div class="modal">
-    <h2>Sync from YouTube</h2>
-    <p>Fetches the latest JRE episode list and downloads transcripts from the PowerfulJRE channel. This may take several minutes.</p>
-    <label>Number of episodes to fetch</label>
-    <input type="number" id="sync-n" value="100" min="1" max="500"/>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" id="sync-cancel">Cancel</button>
-      <button class="btn btn-blue" id="sync-start">Start Sync</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
 
@@ -477,12 +424,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") doSearch();
   });
 
-  // Sync
-  document.getElementById("sync-btn").addEventListener("click", () => openSyncModal());
-  document.getElementById("landing-sync-btn").addEventListener("click", () => openSyncModal());
-  document.getElementById("sync-cancel").addEventListener("click", closeSyncModal);
-  document.getElementById("sync-start").addEventListener("click", startSync);
-
   // Lookback change
   document.getElementById("lookback-sel").addEventListener("change", () => {
     if (currentKeyword) doSearch();
@@ -502,15 +443,23 @@ async function refreshStatus() {
     if (d.sync.running) {
       dot.className = "status-dot busy";
       txt.textContent = d.sync.message;
+      // Update landing screen to reflect live progress
+      const added = d.sync.added || 0;
+      document.getElementById("landing-heading").textContent =
+        added > 0 ? `Fetched ${added} episodes so far…` : "Fetching episodes…";
+      document.getElementById("landing-msg").textContent = d.sync.message;
     } else if (d.total_episodes > 0) {
       dot.className = "status-dot ok";
       txt.textContent = `${d.total_episodes} episodes  |  ${d.latest_date || ""}`;
-      showContent(d.total_episodes > 0);
     } else {
+      // No episodes and not syncing — rate-limited on startup, show message
       dot.className = "status-dot";
-      txt.textContent = "No episodes loaded";
-      showContent(false);
+      txt.textContent = "Waiting for YouTube…";
+      document.getElementById("landing-heading").textContent = "YouTube rate-limited";
+      document.getElementById("landing-msg").textContent =
+        "Transcripts reset around 11 am UTC. The app will retry automatically tomorrow.";
     }
+    showContent(d.total_episodes > 0);
   } catch {
     document.getElementById("status-dot").className = "status-dot error";
     document.getElementById("status-text").textContent = "Server unreachable";
@@ -522,28 +471,6 @@ function showContent(hasData) {
   // Don't hide results if a search was already done
   if (!hasData) {
     document.getElementById("results").classList.remove("visible");
-  }
-}
-
-// ────────────────────────────────────────────────────────────
-// Sync modal
-// ────────────────────────────────────────────────────────────
-function openSyncModal()  { document.getElementById("sync-modal").classList.add("open"); }
-function closeSyncModal() { document.getElementById("sync-modal").classList.remove("open"); }
-
-async function startSync() {
-  const n = parseInt(document.getElementById("sync-n").value) || 100;
-  closeSyncModal();
-  try {
-    await fetch("/api/sync", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ episodes: n })
-    });
-    toast("Sync started — check status bar", "success");
-    refreshStatus();
-  } catch {
-    toast("Failed to start sync", "error");
   }
 }
 
