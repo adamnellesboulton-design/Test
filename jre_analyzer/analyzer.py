@@ -27,6 +27,21 @@ from .database import Database
 
 logger = logging.getLogger(__name__)
 
+# ── Stemmer ───────────────────────────────────────────────────────────────────
+# snowballstemmer (PyPI: snowballstemmer) maps inflected forms to their root so
+# that "drugs", "drug", "drugged" all index and search as "drug".  Falls back
+# to identity if the package is not installed (no stemming, existing behaviour).
+try:
+    import snowballstemmer as _sb
+    _stemmer = _sb.stemmer("english")
+    def stem_word(word: str) -> str:
+        return _stemmer.stemWord(word)
+    logger.debug("Snowball English stemmer loaded")
+except ImportError:  # pragma: no cover
+    def stem_word(word: str) -> str:  # type: ignore[misc]
+        return word
+    logger.warning("snowballstemmer not installed — plurals will not be collapsed")
+
 # Words to ignore when building the general index (not applied to keyword search)
 STOPWORDS: frozenset[str] = frozenset(
     "a an the and or but if in on at to of for is it he she they we "
@@ -37,8 +52,16 @@ STOPWORDS: frozenset[str] = frozenset(
 
 
 def tokenize(text: str) -> list[str]:
-    """Lower-case alphabetic tokens only (no punctuation, no digits)."""
-    return re.findall(r"[a-z]+", text.lower())
+    """
+    Lower-case alphabetic tokens, stemmed to their English root form.
+
+    Examples (with snowballstemmer installed):
+        "drugs" → ["drug"]
+        "running" → ["run"]
+        "psychedelics" → ["psychedel"]
+        "DMT" → ["dmt"]   (acronyms are unaffected — no common suffix)
+    """
+    return [stem_word(w) for w in re.findall(r"[a-z]+", text.lower())]
 
 
 def build_frequencies(transcript: list[dict]) -> tuple[dict[str, int], dict[int, dict[str, int]]]:

@@ -1,4 +1,5 @@
 flask>=3.0.0
+snowballstemmer>=2.2.0
 youtube-transcript-api>=1.0.0
 yt-dlp>=2025.1.1
 requests>=2.31.0

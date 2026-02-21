@@ -11,7 +11,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .analyzer import per_minute_rate
+from .analyzer import per_minute_rate, stem_word
 from .database import Database
 
 
@@ -61,9 +61,12 @@ class SearchResult:
 def search(db: Database, keyword: str) -> SearchResult:
     """
     Search for `keyword` across all indexed episodes.
+
+    The keyword is stemmed with the same algorithm used at index time, so
+    "drugs", "drug", and "drugged" all resolve to the same DB key.
     Populates rolling averages over the N most-recent episodes.
     """
-    keyword = keyword.strip().lower()
+    keyword = stem_word(keyword.strip().lower())
     raw_rows = db.search_word_by_episode(keyword)
 
     episodes: list[EpisodeResult] = []
