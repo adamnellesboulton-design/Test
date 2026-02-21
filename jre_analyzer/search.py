@@ -100,9 +100,20 @@ def is_valid_match(word: str, term: str) -> bool:
         # last char of `term`, check whether the remainder is a suffix.
         if after and after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
             return False
+        # Reject if the after-part begins with the term again — this means the
+        # term is just a repeated phoneme inside a longer root word, not a real
+        # compound.  e.g. "ass" + "assinate" → "assassinate" should NOT match.
+        if after[:len(term)] == term:
+            return False
         return True
 
-    # Term is in the middle or at the end → compound
+    # Term is in the middle or at the end.
+    # Require the prefix (word[:pos]) to be at least as long as the term itself
+    # to avoid false positives from short consonant clusters.
+    # e.g. "ass" in "class" (pos=2, prefix="cl" len=2 < 3) → rejected.
+    #      "ass" in "badass" (pos=3, prefix="bad" len=3 >= 3) → accepted.
+    if pos < len(term):
+        return False
     return True
 
 

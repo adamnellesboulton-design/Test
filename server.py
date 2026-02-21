@@ -22,7 +22,7 @@ from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
 from jre_analyzer.search import search, get_minute_breakdown
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
-from jre_analyzer.fetch_transcripts import parse_transcript_txt
+from jre_analyzer.fetch_transcripts import parse_transcript_txt, extract_episode_date
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
@@ -88,7 +88,6 @@ def api_upload():
     """
     files = request.files.getlist("files[]")
     titles = request.form.getlist("title[]")
-    dates  = request.form.getlist("episode_date[]")
 
     if not files or all(f.filename == "" for f in files):
         return jsonify({"error": "No files provided"}), 400
@@ -99,13 +98,15 @@ def api_upload():
     for i, f in enumerate(files):
         filename = f.filename or f"upload_{i+1}.txt"
         title    = titles[i] if i < len(titles) and titles[i].strip() else Path(filename).stem
-        date     = dates[i]  if i < len(dates)  and dates[i].strip()  else None
 
         try:
             content = f.read().decode("utf-8", errors="replace")
         except Exception as exc:
             errors.append({"filename": filename, "error": f"Could not read file: {exc}"})
             continue
+
+        # Auto-detect date from transcript content ("Episode Date: Month D, YYYY")
+        date = extract_episode_date(content)
 
         if not content.strip():
             errors.append({"filename": filename, "error": "File is empty"})
@@ -229,7 +230,7 @@ def api_search():
                 "sf":    round(rec_sf.get(k, 0), 6),
                 "pct":   round(rec_sf.get(k, 0) * 100, 2),
             }
-            for k in range(MAX_BUCKET + 1)
+            for k in range(1, MAX_BUCKET + 1)  # Start at 1; P(≥0)=100% is trivially obvious
         ],
     }
 

@@ -28,6 +28,37 @@ _TIMESTAMP_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DATE_RE = re.compile(
+    r"episode\s+date\s*:\s*([a-z]+)\s+(\d{1,2}),?\s*(\d{4})",
+    re.IGNORECASE,
+)
+
+_MONTHS = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+}
+
+
+def extract_episode_date(content: str) -> Optional[str]:
+    """
+    Scan the transcript content for a line like:
+        Episode Date: February 5, 2026
+    and return an ISO-format date string (YYYY-MM-DD), or None if not found.
+    Only scans the first 4000 characters so it stays fast for large files.
+    """
+    m = _DATE_RE.search(content[:4000])
+    if not m:
+        return None
+    month_str, day_str, year_str = m.group(1), m.group(2), m.group(3)
+    month = _MONTHS.get(month_str.lower())
+    if not month:
+        return None
+    try:
+        return f"{int(year_str):04d}-{month:02d}-{int(day_str):02d}"
+    except ValueError:
+        return None
+
 
 def parse_transcript_txt(content: str) -> tuple[list[dict], int]:
     """

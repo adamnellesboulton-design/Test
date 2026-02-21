@@ -42,7 +42,7 @@ except ImportError:
 from .search import SearchResult
 
 
-MAX_BUCKET = 10   # counts above this are grouped into a "10+" bucket
+MAX_BUCKET = 25   # counts above this are grouped into a "25+" bucket
 
 
 @dataclass
