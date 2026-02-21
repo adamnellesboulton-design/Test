@@ -27,7 +27,7 @@ DB_PATH = Path("jre_data.db")
 db = Database(db_path=DB_PATH)
 
 # Track background sync state
-_sync_status = {"running": False, "message": "Idle", "added": 0}
+_sync_status = {"running": False, "message": "Idle", "added": 0, "rate_limited": False}
 _sync_lock = threading.Lock()
 
 
@@ -76,12 +76,20 @@ def api_sync():
                 _sync_status["added"] = summary["added"]
                 _sync_status["transcripts_ok"] = summary["transcripts_ok"]
                 _sync_status["transcripts_missing"] = summary["transcripts_missing"]
-                _sync_status["message"] = (
-                    f"Done. {summary['added']} new episodes added "
-                    f"({summary['transcripts_ok']} with transcripts, "
-                    f"{summary['transcripts_missing']} missing), "
-                    f"{indexed} indexed."
-                )
+                _sync_status["rate_limited"] = summary.get("rate_limited", False)
+                if summary.get("rate_limited"):
+                    _sync_status["message"] = (
+                        f"YouTube rate-limit hit after {summary['added']} episodes "
+                        f"({summary['transcripts_ok']} with transcripts). "
+                        f"Indexed {indexed}. Re-run sync after 11 am UTC to continue."
+                    )
+                else:
+                    _sync_status["message"] = (
+                        f"Done. {summary['added']} new episodes added "
+                        f"({summary['transcripts_ok']} with transcripts, "
+                        f"{summary['transcripts_missing']} missing), "
+                        f"{indexed} indexed."
+                    )
         except Exception as exc:
             with _sync_lock:
                 _sync_status["message"] = f"Error: {exc}"

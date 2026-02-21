@@ -78,6 +78,14 @@ from .database import Database
 
 logger = logging.getLogger(__name__)
 
+
+class YouTubeRateLimitError(Exception):
+    """Raised when YouTube's transcript API signals a rate-limit.
+
+    Callers should stop fetching immediately and retry after the reset time
+    (typically resets at 11 am UTC).
+    """
+
 # ── Discovery configuration ───────────────────────────────────────────────────
 
 # Channel ID for PowerfulJRE — used only for the RSS feed URL.
@@ -314,6 +322,8 @@ def fetch_transcript(video_id: str, joe_only: bool = True) -> Optional[list[dict
         # fetch() doesn't exist → old library version, fall through below
         pass
     except Exception as exc:
+        if _is_rate_limit_error(exc):
+            raise YouTubeRateLimitError(str(exc)) from exc
         logger.error("Transcript fetch (new API) failed for %s: %s", video_id, exc)
         return None
 
@@ -327,6 +337,8 @@ def fetch_transcript(video_id: str, joe_only: bool = True) -> Optional[list[dict
             logger.warning("No transcript available for %s", video_id)
             return None
         except Exception as exc:
+            if _is_rate_limit_error(exc):
+                raise YouTubeRateLimitError(str(exc)) from exc
             logger.error("Transcript fetch (legacy API) failed for %s: %s", video_id, exc)
             return None
 
@@ -415,13 +427,15 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
     Only Joe's segments (heuristic filtered) are stored.
 
     Returns a summary dict:
-        added          - episodes newly written to DB
-        skipped        - episodes already in DB
-        transcripts_ok - episodes where a real transcript was fetched
+        added               - episodes newly written to DB
+        skipped             - episodes already in DB
+        transcripts_ok      - episodes where a real transcript was fetched
         transcripts_missing - episodes stored with empty transcript
+        rate_limited        - True if YouTube stopped the sync early
     """
     episodes = fetch_episode_list(max_episodes)
     added = skipped = transcripts_ok = transcripts_missing = 0
+    rate_limited = False
 
     for ep in episodes:
         video_id = ep["video_id"]
@@ -432,7 +446,16 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
             continue
 
         logger.info("Fetching transcript for %s (%s)", ep["title"], video_id)
-        transcript = fetch_transcript(video_id, joe_only=True)
+        try:
+            transcript = fetch_transcript(video_id, joe_only=True)
+        except YouTubeRateLimitError:
+            logger.warning(
+                "YouTube rate-limit hit after %d episodes — stopping sync. "
+                "Transcripts reset around 11 am UTC; run sync again then.",
+                added,
+            )
+            rate_limited = True
+            break
 
         # ── jrescribe fallback ────────────────────────────────────────────
         if transcript is None:
@@ -469,18 +492,34 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
         time.sleep(delay)
 
     logger.info(
-        "Sync complete. added=%d skipped=%d transcripts_ok=%d transcripts_missing=%d",
-        added, skipped, transcripts_ok, transcripts_missing,
+        "Sync complete. added=%d skipped=%d transcripts_ok=%d "
+        "transcripts_missing=%d rate_limited=%s",
+        added, skipped, transcripts_ok, transcripts_missing, rate_limited,
     )
     return {
         "added": added,
         "skipped": skipped,
         "transcripts_ok": transcripts_ok,
         "transcripts_missing": transcripts_missing,
+        "rate_limited": rate_limited,
     }
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Return True when an exception looks like a YouTube rate-limit response."""
+    msg = str(exc).lower()
+    return any(
+        phrase in msg
+        for phrase in (
+            "you've hit your limit",
+            "you have hit your limit",
+            "too many requests",
+            "429",
+        )
+    )
+
 
 def _extract_episode_number(title: str) -> Optional[int]:
     """Extract the JRE episode number from a title string (e.g. '#2100')."""
