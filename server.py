@@ -181,48 +181,6 @@ def api_sync():
     return jsonify({"started": True})
 
 
-# ── API: seed demo data ───────────────────────────────────────────────────────
-
-@app.route("/api/seed", methods=["POST"])
-def api_seed():
-    """Seed the DB with synthetic demo data (no YouTube needed)."""
-    import random, math as _math
-    from datetime import date, timedelta as _td
-
-    random.seed(42)
-    keyword = (request.json or {}).get("keyword", "dmt")
-    n       = (request.json or {}).get("episodes", 100)
-
-    def _make_transcript(kw, count, dur_min=180):
-        segs, t = [], 0.0
-        dur_sec = dur_min * 60
-        times   = set(int(random.uniform(0, dur_sec)) for _ in range(count))
-        filler  = (
-            "yeah man that is like you know interesting right think really "
-            "people the a because so and but what joe rogan"
-        ).split()
-        while t < dur_sec:
-            words = random.choices(filler, k=10)
-            if int(t) in times:
-                words[0] = kw
-            segs.append({"start": t, "duration": 6.0, "text": " ".join(words)})
-            t += 6.0
-        return segs
-
-    for i in range(n):
-        ep_num = 2200 - i
-        spike  = random.random() < 0.08
-        count  = random.randint(8, 20) if spike else max(0, int(random.gauss(3.0, _math.sqrt(3.0))))
-        dur    = random.randint(120, 240)
-        vid    = f"demo_{ep_num:04d}"
-        title  = f"Joe Rogan Experience #{ep_num}"
-        ep_date = (date(2025, 1, 15) - _td(weeks=i)).strftime("%Y-%m-%d")
-        db.upsert_episode(vid, title, ep_date, dur * 60, _make_transcript(keyword, count, dur))
-
-    indexed = index_all(db)
-    return jsonify({"seeded": n, "indexed": indexed, "keyword": keyword})
-
-
 # ── API: search ───────────────────────────────────────────────────────────────
 
 @app.route("/api/search")
@@ -234,6 +192,9 @@ def api_search():
     lookback = int(request.args.get("lookback", 20))
     result   = search(db, keyword)
 
+    def _r(v, digits=4):
+        return round(v, digits) if v is not None else None
+
     episodes = [
         {
             "video_id":         ep.video_id,
@@ -242,21 +203,33 @@ def api_search():
             "episode_number":   ep.episode_number,
             "duration_seconds": ep.duration_seconds,
             "count":            ep.count,
-            "per_minute":       round(ep.per_minute, 4),
+            "count_lo":         _r(ep.count_lo, 2),
+            "count_hi":         _r(ep.count_hi, 2),
+            "per_minute":       _r(ep.per_minute),
+            "per_minute_lo":    _r(ep.per_minute_lo),
+            "per_minute_hi":    _r(ep.per_minute_hi),
         }
         for ep in result.episodes
     ]
 
     averages = {
-        "last_1":   result.avg_last_1,
-        "last_5":   result.avg_last_5,
-        "last_20":  result.avg_last_20,
-        "last_50":  result.avg_last_50,
-        "last_100": result.avg_last_100,
+        "last_1":    result.avg_last_1,
+        "last_5":    result.avg_last_5,
+        "last_20":   result.avg_last_20,
+        "last_50":   result.avg_last_50,
+        "last_100":  result.avg_last_100,
+        # 95 % CI bounds on each average (speaker-filter corrected)
+        "last_1_lo":   _r(result.avg_last_1_lo),
+        "last_1_hi":   _r(result.avg_last_1_hi),
+        "last_5_lo":   _r(result.avg_last_5_lo),
+        "last_5_hi":   _r(result.avg_last_5_hi),
+        "last_20_lo":  _r(result.avg_last_20_lo),
+        "last_20_hi":  _r(result.avg_last_20_hi),
+        "last_50_lo":  _r(result.avg_last_50_lo),
+        "last_50_hi":  _r(result.avg_last_50_hi),
+        "last_100_lo": _r(result.avg_last_100_lo),
+        "last_100_hi": _r(result.avg_last_100_hi),
     }
-
-    def _r(v, digits=4):
-        return round(v, digits) if v is not None else None
 
     averages_per_min = {
         "last_1":   _r(result.avg_pm_last_1),
@@ -272,6 +245,8 @@ def api_search():
 
     fair_value = {
         "lambda":            round(fv.lambda_estimate, 4),
+        "lambda_ci_lo":      round(fv.lambda_ci_lo, 4),
+        "lambda_ci_hi":      round(fv.lambda_ci_hi, 4),
         "mean":              round(fv.mean, 4),
         "std_dev":           round(math.sqrt(fv.variance), 4),
         "model":             (

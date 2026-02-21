@@ -64,9 +64,13 @@ class FairValueResult:
     negbin_pmf:     Optional[dict[int, float]]
     negbin_sf:      Optional[dict[int, float]]
 
+    # 95 % CI on λ incorporating speaker-filter recall uncertainty.
+    # Wald CI on scaled mean: λ_true ≈ mean/recall ± 1.96·√(mean/n)/recall
+    lambda_ci_lo: float = 0.0
+    lambda_ci_hi: float = 0.0
+
     # Median episode duration (minutes) used as normalization reference.
     # None means raw counts were used (no duration data available).
-    # Must come last — it is the only field with a default value.
     reference_minutes: Optional[float] = None
 
 
@@ -126,6 +130,16 @@ def calculate_fair_value(
     lam = mean if mean > 0 else 1e-9
     overdispersed = variance > mean * 1.2   # 20% tolerance
 
+    # ── 95 % CI on the true Joe-only λ (speaker-filter correction) ───────────
+    # Speaker filter: precision ≈ recall ≈ 0.68 (65-70 % accuracy)
+    _RECALL    = 0.68
+    _PRECISION = 0.68
+    # Wald CI on mean of observed counts, then scale to true count.
+    # se(mean_obs) = sqrt(mean_obs / n)  [Poisson]
+    se_obs = math.sqrt(mean / n) if mean > 0 else 0.0
+    lam_ci_lo = max(0.0, (mean - 1.96 * se_obs) * _PRECISION / _RECALL)
+    lam_ci_hi = (mean + 1.96 * se_obs) / _RECALL
+
     poisson_pmf = _poisson_pmf_dict(lam)
     poisson_sf  = _sf_from_pmf(poisson_pmf)
     empirical_pmf = _empirical_pmf(int_counts, n)
@@ -141,6 +155,8 @@ def calculate_fair_value(
     return FairValueResult(
         keyword=result.keyword,
         lambda_estimate=lam,
+        lambda_ci_lo=lam_ci_lo,
+        lambda_ci_hi=lam_ci_hi,
         lookback_episodes=n,
         mean=mean,
         variance=variance,
@@ -252,7 +268,8 @@ def format_fair_value_table(fv: FairValueResult) -> str:
     lines = [
         f"\nKeyword : {fv.keyword!r}",
         f"Lookback: last {fv.lookback_episodes} episodes",
-        f"Mean    : {fv.mean:.2f} mentions/episode",
+        f"Mean    : {fv.mean:.2f} mentions/episode  "
+        f"(95 % CI on true Joe count: [{fv.lambda_ci_lo:.2f}, {fv.lambda_ci_hi:.2f}])",
         f"Std dev : {math.sqrt(fv.variance):.2f}",
         f"Model   : {'Neg-Binomial' if fv.overdispersed and fv.negbin_pmf else ('Empirical' if fv.lookback_episodes >= 10 else 'Poisson')}",
         f"λ (Poisson) = {fv.lambda_estimate:.3f}",

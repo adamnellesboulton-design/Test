@@ -40,20 +40,6 @@ from xml.etree import ElementTree
 
 import requests
 
-# Lazy import — only pulled in when a YouTube transcript is unavailable.
-_jrescribe_fetch = None
-
-
-def _get_jrescribe_fetch():
-    global _jrescribe_fetch
-    if _jrescribe_fetch is None:
-        try:
-            from .jrescribe_source import fetch_transcript_jrescribe  # noqa: PLC0415
-            _jrescribe_fetch = fetch_transcript_jrescribe
-        except Exception:
-            _jrescribe_fetch = lambda ep_num: None  # noqa: E731
-    return _jrescribe_fetch
-
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
     from yt_dlp import YoutubeDL
@@ -457,21 +443,6 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
             rate_limited = True
             break
 
-        # ── jrescribe fallback ────────────────────────────────────────────
-        if transcript is None:
-            ep_num = _extract_episode_number(ep["title"])
-            if ep_num is not None:
-                try:
-                    transcript = _get_jrescribe_fetch()(ep_num)
-                    if transcript:
-                        logger.info(
-                            "Using jrescribe transcript for JRE #%d (%s)",
-                            ep_num, video_id,
-                        )
-                except Exception as exc:
-                    logger.debug("jrescribe fallback error: %s", exc)
-        # ─────────────────────────────────────────────────────────────────
-
         if transcript:
             transcripts_ok += 1
         else:
@@ -519,14 +490,6 @@ def _is_rate_limit_error(exc: Exception) -> bool:
             "429",
         )
     )
-
-
-def _extract_episode_number(title: str) -> Optional[int]:
-    """Extract the JRE episode number from a title string (e.g. '#2100')."""
-    m = re.search(r"#(\d{3,5})", title)
-    if m:
-        return int(m.group(1))
-    return None
 
 
 def _is_jre_episode(title: str) -> bool:
