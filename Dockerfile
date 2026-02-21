@@ -7,10 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Persistent data volume — mount here to keep the DB across container restarts
-VOLUME /app/data
-
-# Tell the app where to store the database
+# Tell the app where to store the database.
+# On Railway, mount a volume to /app/data to persist the DB across deploys.
 ENV DB_PATH=/app/data/jre_data.db
 
 EXPOSE 5000
