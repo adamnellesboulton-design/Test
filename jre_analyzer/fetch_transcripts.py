@@ -12,7 +12,10 @@ Instead we use two fallback-chained methods:
   1. YouTube RSS feed  (requests, no API key, newest ~15 videos)
   2. yt-dlp ytsearch: (YouTube search API — different endpoint, always works)
 
-Transcripts are fetched via youtube-transcript-api which is unaffected.
+Transcripts are fetched via youtube-transcript-api.  When YouTube is
+rate-limited or returns no transcript, the jrescribe-transcripts GitHub
+repository (https://github.com/achendrick/jrescribe-transcripts) is tried
+as a fallback for numbered JRE episodes.
 
 Speaker filtering
 -----------------
@@ -36,6 +39,20 @@ from typing import Optional
 from xml.etree import ElementTree
 
 import requests
+
+# Lazy import — only pulled in when a YouTube transcript is unavailable.
+_jrescribe_fetch = None
+
+
+def _get_jrescribe_fetch():
+    global _jrescribe_fetch
+    if _jrescribe_fetch is None:
+        try:
+            from .jrescribe_source import fetch_transcript_jrescribe  # noqa: PLC0415
+            _jrescribe_fetch = fetch_transcript_jrescribe
+        except Exception:
+            _jrescribe_fetch = lambda ep_num: None  # noqa: E731
+    return _jrescribe_fetch
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -417,6 +434,21 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
         logger.info("Fetching transcript for %s (%s)", ep["title"], video_id)
         transcript = fetch_transcript(video_id, joe_only=True)
 
+        # ── jrescribe fallback ────────────────────────────────────────────
+        if transcript is None:
+            ep_num = _extract_episode_number(ep["title"])
+            if ep_num is not None:
+                try:
+                    transcript = _get_jrescribe_fetch()(ep_num)
+                    if transcript:
+                        logger.info(
+                            "Using jrescribe transcript for JRE #%d (%s)",
+                            ep_num, video_id,
+                        )
+                except Exception as exc:
+                    logger.debug("jrescribe fallback error: %s", exc)
+        # ─────────────────────────────────────────────────────────────────
+
         if transcript:
             transcripts_ok += 1
         else:
@@ -449,6 +481,14 @@ def sync_episodes(db: Database, max_episodes: int = 100, delay: float = 1.5) -> 
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _extract_episode_number(title: str) -> Optional[int]:
+    """Extract the JRE episode number from a title string (e.g. '#2100')."""
+    m = re.search(r"#(\d{3,5})", title)
+    if m:
+        return int(m.group(1))
+    return None
+
 
 def _is_jre_episode(title: str) -> bool:
     """Heuristic: title must reference JRE or Joe Rogan Experience."""
