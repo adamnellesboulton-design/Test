@@ -11,17 +11,20 @@ variable with rate λ estimated from the historical data.
 The Polymarket market typically resolves as:
   "Will keyword X be mentioned AT LEAST N times?"  → YES/NO
 
-So for each bucket n ∈ {0, 1, 2, …, 10} we compute:
-  P(mentions == n)   using Poisson PMF
-  P(mentions >= n)   using Poisson survival function (for ≥ markets)
+So for each bucket n ∈ {0, 1, 2, …, MAX_BUCKET} we compute:
+  P(mentions == n)   using the recommended model's PMF
+  P(mentions >= n)   using the survival function (for ≥ markets)
 
-We also provide a negative-binomial fit as an alternative when the data is
-overdispersed (variance > mean), which is common for names/topics that are
-bursty.
-
-Additionally, an "empirical" distribution is returned: the fraction of the
-lookback episodes where the count fell in each bucket.  This is the most
-robust estimate when the distribution is non-standard.
+Model selection (best → fallback):
+  1. Zero-Inflated Negative Binomial (ZINB) — when overdispersed AND there
+     are significantly more zero-mention episodes than the NB model predicts.
+     Many JRE topics are "either completely absent or very heavy" (e.g. a
+     keyword only comes up when a specific guest appears).  ZINB separates
+     the probability that the topic arises at all (1-π) from the conditional
+     distribution of mentions given it does arise.
+  2. Negative Binomial — overdispersed but not strongly zero-inflated.
+  3. Empirical — 10+ lookback episodes; direct histogram of past counts.
+  4. Poisson — fallback when little data is available.
 
 All counts are total mentions by anyone in the episode (no speaker filtering).
 """
@@ -69,6 +72,14 @@ class FairValueResult:
     # Median episode duration (minutes) used as normalization reference.
     # None means raw counts were used (no duration data available).
     reference_minutes: Optional[float] = None
+
+    # Zero-Inflated Negative Binomial — fitted when overdispersed AND the
+    # observed zero fraction substantially exceeds the NB-predicted zero prob.
+    # π is the probability of "structural zero" (topic simply doesn't arise).
+    zero_inflated:  bool                      = False
+    pi_estimate:    Optional[float]           = None   # zero-inflation π
+    zinb_pmf:       Optional[dict[int, float]] = None
+    zinb_sf:        Optional[dict[int, float]] = None
 
 
 def calculate_fair_value(
@@ -132,6 +143,37 @@ def calculate_fair_value(
         if negbin_pmf:
             negbin_sf = _sf_from_pmf(negbin_pmf)
 
+    # ── Zero-inflation detection ──────────────────────────────────────────────
+    # Many JRE keywords are bimodal: 0 mentions most episodes, heavy mentions
+    # when the topic actually comes up.  We detect this by comparing the
+    # observed zero fraction against the best-available model's predicted
+    # zero probability.  If observed zeros are substantially higher we fit a
+    # Zero-Inflated NB (ZINB).
+    zero_fraction = sum(1 for c in int_counts if c == 0) / n
+
+    # Expected P(X=0) under NB (or Poisson as fallback)
+    expected_p0 = math.exp(-lam)   # Poisson default
+    if HAS_SCIPY and overdispersed and variance > mean and mean > 0:
+        try:
+            p_nb = mean / variance
+            r_nb = mean * p_nb / (1 - p_nb)
+            if r_nb > 0 and 0 < p_nb < 1:
+                expected_p0 = float(stats.nbinom.pmf(0, r_nb, p_nb))
+        except Exception:
+            pass
+
+    # Trigger ZINB when: ≥30% zeros AND observed zeros exceed NB prediction
+    # by at least 15 percentage points (absolute).
+    zero_inflated = zero_fraction >= 0.3 and zero_fraction > expected_p0 + 0.15
+
+    zinb_pmf: Optional[dict[int, float]] = None
+    zinb_sf:  Optional[dict[int, float]] = None
+    pi_est:   Optional[float]            = None
+    if zero_inflated and HAS_SCIPY and overdispersed and variance > 0 and mean > 0:
+        zinb_pmf, pi_est = _zinb_pmf_dict(mean, variance, zero_fraction)
+        if zinb_pmf:
+            zinb_sf = _sf_from_pmf(zinb_pmf)
+
     return FairValueResult(
         keyword=result.keyword,
         lambda_estimate=lam,
@@ -146,10 +188,16 @@ def calculate_fair_value(
         empirical_sf=empirical_sf,
         negbin_pmf=negbin_pmf,
         negbin_sf=negbin_sf,
+        zero_inflated=zero_inflated,
+        pi_estimate=pi_est,
+        zinb_pmf=zinb_pmf,
+        zinb_sf=zinb_sf,
     )
 
 
 def recommended_pmf(fv: FairValueResult) -> dict[int, float]:
+    if fv.zero_inflated and fv.zinb_pmf is not None:
+        return fv.zinb_pmf
     if fv.overdispersed and fv.negbin_pmf is not None:
         return fv.negbin_pmf
     if fv.lookback_episodes >= 10:
@@ -214,6 +262,50 @@ def _negbin_pmf_dict(mean: float, variance: float) -> Optional[dict[int, float]]
         return None
 
 
+def _zinb_pmf_dict(
+    mean: float,
+    variance: float,
+    zero_fraction: float,
+) -> tuple[Optional[dict[int, float]], Optional[float]]:
+    """
+    Zero-Inflated Negative Binomial PMF.
+
+    Models the count as a mixture:
+      - With probability π  → structural zero (topic didn't arise)
+      - With probability 1-π → NB(r, p)  (topic arose, mentions follow NB)
+
+    π is estimated from the excess zeros beyond what the NB alone predicts:
+      π = (observed_zero_fraction - NB_P(X=0)) / (1 - NB_P(X=0))
+
+    Returns (pmf_dict, pi_estimate) or (None, None) on failure.
+    """
+    if not HAS_SCIPY or variance <= mean or mean <= 0:
+        return None, None
+    try:
+        p_nb = mean / variance
+        r_nb = mean * p_nb / (1 - p_nb)
+        if r_nb <= 0 or not (0 < p_nb < 1):
+            return None, None
+
+        p_0_nb = float(stats.nbinom.pmf(0, r_nb, p_nb))
+        if zero_fraction <= p_0_nb:
+            return None, None  # No excess zeros over NB baseline
+
+        pi = (zero_fraction - p_0_nb) / (1.0 - p_0_nb)
+        pi = max(0.0, min(pi, 0.999))
+
+        pmf: dict[int, float] = {}
+        tail = 0.0
+        for k in range(MAX_BUCKET):
+            nb_p = float(stats.nbinom.pmf(k, r_nb, p_nb))
+            pmf[k] = (pi if k == 0 else 0.0) + (1.0 - pi) * nb_p
+            tail += pmf[k]
+        pmf[MAX_BUCKET] = max(0.0, 1.0 - tail)
+        return pmf, round(pi, 4)
+    except Exception:
+        return None, None
+
+
 def _sf_from_pmf(pmf: dict[int, float]) -> dict[int, float]:
     sf: dict[int, float] = {}
     cumulative = 0.0
@@ -233,7 +325,9 @@ def format_fair_value_table(fv: FairValueResult) -> str:
         f"Lookback: last {fv.lookback_episodes} episodes",
         f"Mean    : {fv.mean:.2f} mentions/episode",
         f"Std dev : {math.sqrt(fv.variance):.2f}",
-        f"Model   : {'Neg-Binomial' if fv.overdispersed and fv.negbin_pmf else ('Empirical' if fv.lookback_episodes >= 10 else 'Poisson')}",
+        f"Model   : "
+        f"{'Zero-Inflated NB' if fv.zero_inflated and fv.zinb_pmf else 'Neg-Binomial' if fv.overdispersed and fv.negbin_pmf else ('Empirical' if fv.lookback_episodes >= 10 else 'Poisson')}"
+        + (f"  (π={fv.pi_estimate:.2f})" if fv.pi_estimate is not None and fv.zero_inflated else ""),
         f"λ (Poisson) = {fv.lambda_estimate:.3f}",
         "",
         f"{'Count':>6}  {'P(= N)':>10}  {'P(>= N)':>10}  {'Fair value (≥N YES)':>20}",
