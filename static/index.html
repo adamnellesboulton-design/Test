@@ -432,6 +432,31 @@ tbody td { padding: 9px 12px; }
 /* ── Per-minute panel ── */
 #minute-panel { display: none; }
 #minute-panel.visible { display: block; }
+#context-panel { display: none; }
+#context-panel.visible { display: block; }
+.ctx-hit {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+  line-height: 1.55;
+}
+.ctx-hit:last-child { border-bottom: none; }
+.ctx-ts {
+  display: inline-block;
+  min-width: 52px;
+  color: var(--muted);
+  font-size: .78rem;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.ctx-text { color: var(--text-secondary, #ccc); }
+.ctx-match {
+  background: rgba(233,69,96,.25);
+  color: #f87f95;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 600;
+}
 
 /* ── Empty / loading states ── */
 .empty {
@@ -616,9 +641,15 @@ tbody td { padding: 9px 12px; }
         <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
       </div>
 
+      <!-- Context / KWIC panel -->
+      <div class="card" id="context-panel">
+        <div class="card-title" id="context-title">Transcript mentions</div>
+        <div id="context-hits"></div>
+      </div>
+
       <!-- Episode table -->
       <div class="card">
-        <div class="card-title">Episode history — click a row for per-minute view</div>
+        <div class="card-title">Episode history — click a row for per-minute breakdown &amp; transcript hits</div>
         <div class="table-wrap">
           <table id="ep-table">
             <thead>
@@ -960,23 +991,24 @@ function updateSearchPlaceholder() {
 }
 
 function addKwTag(raw) {
-  const kw = raw.trim().replace(/,+$/, "").trim();
-  if (!kw) return;
-  const existing = [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw.toLowerCase());
-  if (existing.includes(kw.toLowerCase())) {
-    document.getElementById("search-input").value = "";
-    return;
-  }
-  const chip = document.createElement("span");
-  chip.className = "kw-tag";
-  chip.dataset.kw = kw;
-  chip.innerHTML = `${kw} <button aria-label="remove">×</button>`;
-  chip.querySelector("button").addEventListener("click", () => {
-    chip.remove();
-    updateSearchPlaceholder();
-  });
+  // Split only on commas — spaces are kept so phrases like "prime minister" stay intact.
+  const terms = raw.split(/,+/).map(t => t.trim()).filter(Boolean);
+  if (!terms.length) return;
+  const existing = () => [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw.toLowerCase());
   const inp = document.getElementById("search-input");
-  document.getElementById("tag-wrap").insertBefore(chip, inp);
+  const wrap = document.getElementById("tag-wrap");
+  terms.forEach(kw => {
+    if (existing().includes(kw.toLowerCase())) return;
+    const chip = document.createElement("span");
+    chip.className = "kw-tag";
+    chip.dataset.kw = kw;
+    chip.innerHTML = `${escHtml(kw)} <button aria-label="remove">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      chip.remove();
+      updateSearchPlaceholder();
+    });
+    wrap.insertBefore(chip, inp);
+  });
   inp.value = "";
   updateSearchPlaceholder();
 }
@@ -1201,6 +1233,7 @@ function renderTable(episodes) {
 // ── Per-minute breakdown ──────────────────────────────────────
 async function loadMinutes(episodeId) {
   if (!currentKeyword) return;
+  loadContext(episodeId);
   try {
     const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
     const d = await r.json();
@@ -1243,6 +1276,33 @@ async function loadMinutes(episodeId) {
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
     toast("Could not load per-minute data", "error");
+  }
+}
+
+// ── Transcript context (KWIC) ─────────────────────────────────
+async function loadContext(episodeId) {
+  const panel = document.getElementById("context-panel");
+  const hitsEl = document.getElementById("context-hits");
+  const titleEl = document.getElementById("context-title");
+  panel.classList.remove("visible");
+  hitsEl.innerHTML = "";
+  try {
+    const r = await fetch(`/api/context?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
+    const d = await r.json();
+    if (!d.hits || d.hits.length === 0) return;
+
+    titleEl.textContent = `Transcript mentions (${d.hits.length})`;
+    hitsEl.innerHTML = d.hits.map(h => {
+      const mm = String(h.minute).padStart(2, "0");
+      const ss = String(h.second).padStart(2, "0");
+      return `<div class="ctx-hit">
+        <span class="ctx-ts">${mm}:${ss}</span>
+        <span class="ctx-text">${escHtml(h.prefix)}<span class="ctx-match">${escHtml(h.match)}</span>${escHtml(h.suffix)}</span>
+      </div>`;
+    }).join("");
+    panel.classList.add("visible");
+  } catch (e) {
+    // silently skip if context unavailable
   }
 }
 

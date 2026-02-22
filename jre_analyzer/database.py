@@ -161,6 +161,16 @@ class Database:
     def count_episodes(self) -> int:
         return self._con.execute("SELECT COUNT(*) FROM episodes").fetchone()[0]
 
+    def get_transcript(self, episode_id: int) -> list:
+        """Return raw transcript segments [{start, text}, …] for an episode."""
+        row = self._con.execute(
+            "SELECT transcript_json FROM episodes WHERE id = ?", (episode_id,)
+        ).fetchone()
+        if row is None or row["transcript_json"] is None:
+            return []
+        import json as _json
+        return _json.loads(row["transcript_json"])
+
     # ------------------------------------------------------------------
     # Word frequencies
     # ------------------------------------------------------------------
