@@ -99,7 +99,14 @@ def is_valid_match(word: str, term: str) -> bool:
         return True
 
     # 2. Plural
-    if word == term + "s" or word == term + "es":
+    # +es always accepted (asses, churches, …).
+    # +s only accepted when the term does NOT end in "e": adding "s" to an
+    # "e"-ending word produces a 3rd-person-singular verb form (collapses,
+    # breathes, …), not a plural.  Genuine "e"-word plurals already end in
+    # "es" (horses, races) and are caught by the +es branch above.
+    if word == term + "es":
+        return True
+    if word == term + "s" and not term.endswith("e"):
         return True
 
     # 3. Compound
