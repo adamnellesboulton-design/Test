@@ -21,7 +21,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
 from jre_analyzer.search import (
-    search, get_minute_breakdown, merge_results,
+    search, get_minute_breakdown, merge_results, intersect_results,
     phrase_search, get_phrase_minute_breakdown, get_context,
 )
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
@@ -167,6 +167,7 @@ def api_search():
         return jsonify({"error": "keyword required"}), 400
 
     lookback = int(request.args.get("lookback", 20))
+    mode     = request.args.get("mode", "or").strip().lower()   # "or" | "and"
 
     # Optional episode filter — comma-separated IDs
     ep_ids_raw = request.args.get("episode_ids", "").strip()
@@ -187,7 +188,8 @@ def api_search():
         else search(db, t, episode_ids=episode_ids)
         for t in terms
     ]
-    result = merge_results(keyword, individual_results)
+    result = (intersect_results(keyword, individual_results) if mode == "and"
+              else merge_results(keyword, individual_results))
 
     def _r(v, digits=4):
         return round(v, digits) if v is not None else None
@@ -276,6 +278,7 @@ def api_search():
 
     return jsonify({
         "keyword":            keyword,
+        "mode":               mode,
         "episodes":           episodes,
         "averages":           averages,
         "averages_per_min":   averages_per_min,
