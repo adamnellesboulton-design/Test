@@ -250,12 +250,24 @@ def api_search():
         ],
     }
 
+    per_keyword = [
+        {
+            "keyword": t,
+            "episodes": [
+                {"episode_id": ep.episode_id, "count": ep.count, "per_minute": _r(ep.per_minute)}
+                for ep in res.episodes
+            ],
+        }
+        for t, res in zip(terms, individual_results)
+    ]
+
     return jsonify({
         "keyword":          keyword,
         "episodes":         episodes,
         "averages":         averages,
         "averages_per_min": averages_per_min,
         "fair_value":       fair_value,
+        "per_keyword":      per_keyword,
     })
 
 
@@ -282,31 +294,31 @@ def api_minutes():
     result = merge_results(keyword, individual_results)
     ep     = result.episode_by_id(eid)
 
-    # Merge per-minute breakdowns across all keywords
+    # Per-keyword and merged per-minute breakdowns
+    per_keyword_minutes: list[dict] = []
     merged_counts: dict[int, int] = {}
     for t in terms:
         breakdown = (
             get_phrase_minute_breakdown(db, t, eid) if " " in t
             else get_minute_breakdown(db, t, eid)
         )
+        kw_map: dict[int, int] = {}
         for mr in breakdown:
+            kw_map[mr.minute] = kw_map.get(mr.minute, 0) + mr.count
             merged_counts[mr.minute] = merged_counts.get(mr.minute, 0) + mr.count
+        per_keyword_minutes.append({"keyword": t, "minutes": kw_map})
 
     if not merged_counts:
-        return jsonify({"episode_id": eid, "keyword": keyword, "minutes": []})
+        return jsonify({"episode_id": eid, "keyword": keyword, "minutes": [], "per_keyword": per_keyword_minutes})
 
-    minutes    = list(merged_counts.keys())
-    full_range = list(range(min(minutes), max(minutes) + 1))
-    count_map  = merged_counts
+    full_range = list(range(min(merged_counts), max(merged_counts) + 1))
 
     return jsonify({
-        "episode_id": eid,
-        "keyword":    keyword,
-        "title":      ep.title if ep else str(eid),
-        "minutes":    [
-            {"minute": m, "count": count_map.get(m, 0)}
-            for m in full_range
-        ],
+        "episode_id":  eid,
+        "keyword":     keyword,
+        "title":       ep.title if ep else str(eid),
+        "minutes":     [{"minute": m, "count": merged_counts.get(m, 0)} for m in full_range],
+        "per_keyword": per_keyword_minutes,
     })
 
 

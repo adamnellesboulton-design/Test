@@ -705,6 +705,9 @@ let allEpisodes   = [];   // [{id, title, episode_date, ...}]
 let selectedIds   = new Set();  // episode IDs checked in sidebar
 let currentData   = null;
 let currentKeyword = "";
+
+// Colour palette for multi-keyword charts (stacked bars)
+const KW_COLORS = ["#e94560","#a855f7","#f97316","#ec4899","#3b82f6","#14b8a6","#eab308"];
 let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
@@ -1094,7 +1097,7 @@ function renderResults(data) {
      </div>`
   ).join("");
 
-  renderTrendChart(eps);
+  renderTrendChart(eps, data.per_keyword);
 
   const modelLabel = {
     "poisson":       "Poisson",
@@ -1116,13 +1119,13 @@ function renderResults(data) {
 }
 
 // ── Trend chart ──────────────────────────────────────────────
-function renderTrendChart(episodes) {
+function renderTrendChart(episodes, perKeyword) {
   const ctx = document.getElementById("trend-chart").getContext("2d");
   if (trendChart) trendChart.destroy();
 
   const eps    = [...episodes].reverse();
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
-  const counts = eps.map(e => e.count);
+  const stacked = perKeyword && perKeyword.length > 1;
 
   const avgsData = currentData.averages;
   const avgLines = [
@@ -1133,14 +1136,29 @@ function renderTrendChart(episodes) {
     { label: "Last 100", value: avgsData.last_100, color: "#06d6a0" },
   ].filter(a => a.value !== null && a.value !== undefined);
 
-  const datasets = [
-    {
-      label: "Mentions",
-      data: counts,
-      backgroundColor: counts.map(c => c > 0 ? "#e94560cc" : "#2a2a4a"),
-      borderColor: counts.map(c => c > 0 ? "#e94560" : "#2a2a4a"),
+  let barDatasets;
+  if (stacked) {
+    barDatasets = perKeyword.map((kw, i) => {
+      const col = KW_COLORS[i % KW_COLORS.length];
+      const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
+      const counts = eps.map(e => idxMap[e.episode_id] ?? 0);
+      return { label: kw.keyword, data: counts, backgroundColor: col + "cc", borderColor: col,
+               borderWidth: 1, borderRadius: 3, type: "bar", order: 2, stack: "kw" };
+    });
+  } else {
+    const counts = eps.map(e => e.count);
+    const col = KW_COLORS[0];
+    const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
+    barDatasets = [{
+      label, data: counts,
+      backgroundColor: counts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
+      borderColor:     counts.map(c => c > 0 ? col       : "#2a2a4a"),
       borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
-    },
+    }];
+  }
+
+  const datasets = [
+    ...barDatasets,
     ...avgLines.map(a => ({
       label: `${a.label} avg: ${a.value.toFixed(2)}`,
       data: Array(eps.length).fill(a.value),
@@ -1159,8 +1177,8 @@ function renderTrendChart(episodes) {
         tooltip: { callbacks: { title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; } } }
       },
       scales: {
-        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" } },
-        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true }
+        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
+        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1253,22 +1271,40 @@ async function loadMinutes(episodeId) {
     }
     panel.querySelector("canvas").style.display = "";
 
-    const labels = d.minutes.map(m => `${m.minute}m`);
-    const counts = d.minutes.map(m => m.count);
-    const mean   = counts.reduce((a, b) => a + b, 0) / counts.length;
+    const labels  = d.minutes.map(m => `${m.minute}m`);
+    const counts  = d.minutes.map(m => m.count);
+    const mean    = counts.reduce((a, b) => a + b, 0) / counts.length;
+    const pk      = d.per_keyword;
+    const stacked = pk && pk.length > 1;
+
+    let barDatasets;
+    if (stacked) {
+      barDatasets = pk.map((kw, i) => {
+        const col  = KW_COLORS[i % KW_COLORS.length];
+        const data = d.minutes.map(m => kw.minutes[m.minute] ?? 0);
+        return { label: kw.keyword, data, backgroundColor: col + "cc", borderColor: col,
+                 borderWidth: 1, borderRadius: 3, order: 2, stack: "kw" };
+      });
+    } else {
+      const col   = KW_COLORS[0];
+      const label = pk && pk.length === 1 ? pk[0].keyword : "Mentions";
+      barDatasets = [{ label, data: counts, backgroundColor: col + "cc", borderColor: col,
+                       borderWidth: 1, borderRadius: 3, order: 2 }];
+    }
 
     minuteChart = new Chart(ctx, {
       type: "bar",
       data: { labels, datasets: [
-        { label: "Mentions", data: counts, backgroundColor: "#e94560cc", borderColor: "#e94560", borderWidth: 1, borderRadius: 3, order: 2 },
-        { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean), type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+        ...barDatasets,
+        { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
+          type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" } },
-          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true }
+          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" }, stacked },
+          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
         }
       }
     });
