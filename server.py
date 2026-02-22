@@ -250,24 +250,38 @@ def api_search():
         ],
     }
 
-    per_keyword = [
-        {
+    per_keyword = []
+    per_keyword_fv = []
+    for t, res in zip(terms, individual_results):
+        per_keyword.append({
             "keyword": t,
             "episodes": [
                 {"episode_id": ep.episode_id, "count": ep.count, "per_minute": _r(ep.per_minute)}
                 for ep in res.episodes
             ],
-        }
-        for t, res in zip(terms, individual_results)
-    ]
+        })
+        kw_fv    = calculate_fair_value(res, lookback=lookback)
+        kw_sf    = recommended_sf(kw_fv)
+        per_keyword_fv.append({
+            "keyword": t,
+            "buckets": [
+                {
+                    "n":     k,
+                    "label": f"{k}+" if k == MAX_BUCKET else str(k),
+                    "pct":   round(kw_sf.get(k, 0) * 100, 2),
+                }
+                for k in range(1, MAX_BUCKET + 1)
+            ],
+        })
 
     return jsonify({
-        "keyword":          keyword,
-        "episodes":         episodes,
-        "averages":         averages,
-        "averages_per_min": averages_per_min,
-        "fair_value":       fair_value,
-        "per_keyword":      per_keyword,
+        "keyword":            keyword,
+        "episodes":           episodes,
+        "averages":           averages,
+        "averages_per_min":   averages_per_min,
+        "fair_value":         fair_value,
+        "per_keyword":        per_keyword,
+        "per_keyword_fv":     per_keyword_fv,
     })
 
 

@@ -1110,7 +1110,7 @@ function renderResults(data) {
     : "";
   document.getElementById("fv-model-badge").textContent = modelLabel + piSuffix;
 
-  renderFVChart(fv);
+  renderFVChart(fv, data.per_keyword_fv);
   renderFVGrid(fv);
   renderTable(eps);
 
@@ -1185,20 +1185,42 @@ function renderTrendChart(episodes, perKeyword) {
 }
 
 // ── Fair-value chart ─────────────────────────────────────────
-function renderFVChart(fv) {
+function renderFVChart(fv, pkFv) {
   const ctx = document.getElementById("fv-chart").getContext("2d");
   if (fvChart) fvChart.destroy();
 
-  const labels = fv.buckets.map(b => b.label);
-  const pcts   = fv.buckets.map(b => b.pct);
-  const colors = fv.buckets.map(() => "#e94560cc");
+  const labels   = fv.buckets.map(b => b.label);
+  const multiKw  = pkFv && pkFv.length > 1;
+
+  // Build one dataset per keyword (grouped bars) or one merged dataset
+  const datasets = multiKw
+    ? pkFv.map((kw, i) => {
+        const col = KW_COLORS[i % KW_COLORS.length];
+        return {
+          label: kw.keyword,
+          data: kw.buckets.map(b => b.pct),
+          backgroundColor: col + "cc",
+          borderColor: col,
+          borderWidth: 1, borderRadius: 3,
+        };
+      })
+    : [{
+        label: (pkFv && pkFv.length === 1 ? pkFv[0].keyword : "P(≥ N) %"),
+        data: fv.buckets.map(b => b.pct),
+        backgroundColor: KW_COLORS[0] + "cc",
+        borderColor: KW_COLORS[0],
+        borderWidth: 1, borderRadius: 4,
+      }];
 
   fvChart = new Chart(ctx, {
     type: "bar",
-    data: { labels, datasets: [{ label: "P(≥ N) %", data: pcts, backgroundColor: colors, borderColor: colors.map(c => c.replace("cc","")), borderWidth: 1, borderRadius: 4 }] },
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: item => `P(≥${item.label}) = ${item.raw.toFixed(1)}%` } } },
+      plugins: {
+        legend: { display: multiKw, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
+      },
       scales: {
         x: { ticks: { color: "#888" }, grid: { color: "#22223a" } },
         y: { ticks: { color: "#888", callback: v => v + "%" }, grid: { color: "#22223a" }, beginAtZero: true, max: 100 }
