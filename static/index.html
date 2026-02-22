@@ -49,19 +49,55 @@ header {
   min-width: 260px;
   gap: 8px;
 }
-.search-bar input {
+.tag-input-wrap {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 6px 10px;
+  cursor: text;
+  transition: border-color .2s;
+  min-height: 42px;
+}
+.tag-input-wrap:focus-within { border-color: var(--accent2); }
+.tag-input-wrap input {
+  flex: 1;
+  min-width: 110px;
+  background: transparent;
+  border: none;
   color: var(--text);
   font-size: 1rem;
   outline: none;
-  transition: border-color .2s;
+  padding: 3px 4px;
 }
-.search-bar input:focus { border-color: var(--accent2); }
-.search-bar input::placeholder { color: var(--muted); }
+.tag-input-wrap input::placeholder { color: var(--muted); }
+.kw-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent2);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px 2px 9px;
+  font-size: .82rem;
+  white-space: nowrap;
+  user-select: none;
+}
+.kw-tag button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.7);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 1px;
+}
+.kw-tag button:hover { color: #fff; }
 
 .btn {
   padding: 10px 20px;
@@ -468,7 +504,9 @@ tbody td { padding: 9px 12px; }
   <div class="logo">JRE <span>Keyword Analyzer</span></div>
 
   <div class="search-bar">
-    <input type="text" id="search-input" placeholder="Keyword(s)… e.g. DMT  or  million, billion" autocomplete="off"/>
+    <div class="tag-input-wrap" id="tag-wrap">
+      <input type="text" id="search-input" placeholder="Add keyword… e.g. million" autocomplete="off"/>
+    </div>
     <button class="btn btn-primary" id="search-btn">Search</button>
   </div>
 
@@ -648,8 +686,24 @@ document.addEventListener("DOMContentLoaded", () => {
   loadEpisodes();
 
   document.getElementById("search-btn").addEventListener("click", doSearch);
+
+  // Tag-chip input: Enter/comma adds a chip; Backspace removes last chip
+  document.getElementById("tag-wrap").addEventListener("click", () =>
+    document.getElementById("search-input").focus()
+  );
   document.getElementById("search-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") doSearch();
+    const inp = e.target;
+    if (e.key === "Enter") {
+      if (inp.value.trim()) { addKwTag(inp.value); }
+      else { doSearch(); }
+    } else if (e.key === ",") {
+      e.preventDefault();
+      addKwTag(inp.value);
+    } else if (e.key === "Backspace" && inp.value === "") {
+      const chips = document.querySelectorAll(".kw-tag");
+      if (chips.length) chips[chips.length - 1].remove();
+      updateSearchPlaceholder();
+    }
   });
   document.getElementById("lookback-sel").addEventListener("change", () => {
     if (currentKeyword) doSearch();
@@ -897,13 +951,51 @@ async function submitUpload() {
 }
 
 // ────────────────────────────────────────────────────────────
+// ── Tag-chip keyword helpers ──────────────────────────────────────────────────
+
+function updateSearchPlaceholder() {
+  const inp = document.getElementById("search-input");
+  const hasChips = document.querySelectorAll(".kw-tag").length > 0;
+  inp.placeholder = hasChips ? "Add another keyword…" : "Add keyword… e.g. million";
+}
+
+function addKwTag(raw) {
+  const kw = raw.trim().replace(/,+$/, "").trim();
+  if (!kw) return;
+  const existing = [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw.toLowerCase());
+  if (existing.includes(kw.toLowerCase())) {
+    document.getElementById("search-input").value = "";
+    return;
+  }
+  const chip = document.createElement("span");
+  chip.className = "kw-tag";
+  chip.dataset.kw = kw;
+  chip.innerHTML = `${kw} <button aria-label="remove">×</button>`;
+  chip.querySelector("button").addEventListener("click", () => {
+    chip.remove();
+    updateSearchPlaceholder();
+  });
+  const inp = document.getElementById("search-input");
+  document.getElementById("tag-wrap").insertBefore(chip, inp);
+  inp.value = "";
+  updateSearchPlaceholder();
+}
+
+function getKeywords() {
+  const chips = [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw);
+  const cur = document.getElementById("search-input").value.trim().replace(/,+$/, "").trim();
+  if (cur) chips.push(cur);
+  return chips.filter(Boolean);
+}
+
 // Search
 // ────────────────────────────────────────────────────────────
 async function doSearch() {
-  const kw = document.getElementById("search-input").value.trim();
-  if (!kw) { toast("Enter a keyword first", "error"); return; }
+  const keywords = getKeywords();
+  if (!keywords.length) { toast("Enter at least one keyword", "error"); return; }
   if (allEpisodes.length === 0) { toast("Upload transcripts first", "error"); return; }
 
+  const kw = keywords.join(", ");
   const lookback = document.getElementById("lookback-sel").value;
   currentKeyword = kw;
 
