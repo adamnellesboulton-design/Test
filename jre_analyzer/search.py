@@ -35,6 +35,16 @@ from .database import Database
 #        joy + stick → "joystick"  → IS  a match ("stick" is a real word)
 _VOWELS: frozenset[str] = frozenset("aeiou")
 
+# Explicit (word, term) pairs where the compound heuristic fires but the
+# embedded term carries a completely different historical meaning — not a
+# genuine modern compound.  "-teen" in number words comes from Old English
+# "tēon" (ten), not from the modern word "teen" (teenager).
+_FALSE_COMPOUNDS: frozenset[tuple[str, str]] = frozenset([
+    ("thirteen",  "teen"), ("fourteen",  "teen"), ("fifteen",  "teen"),
+    ("sixteen",   "teen"), ("seventeen", "teen"), ("eighteen", "teen"),
+    ("nineteen",  "teen"),
+])
+
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
     "ful", "fully", "ness", "nesses",
     "ly",
@@ -92,6 +102,10 @@ def is_valid_match(word: str, term: str) -> bool:
         "tournament" → False (term embedded mid-word)
     """
     if len(word) < len(term):
+        return False
+
+    # 0. Explicit false-compound blocklist
+    if (word, term) in _FALSE_COMPOUNDS:
         return False
 
     # 1. Exact
