@@ -33,6 +33,8 @@ from .database import Database
 # follows is one of these suffixes, it is a derived form, not a compound.
 # e.g.  joy + ful   → "joyful"    → NOT a match
 #        joy + stick → "joystick"  → IS  a match ("stick" is a real word)
+_VOWELS: frozenset[str] = frozenset("aeiou")
+
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
     "ful", "fully", "ness", "nesses",
     "ly",
@@ -70,7 +72,17 @@ def is_valid_match(word: str, term: str) -> bool:
         "killjoy"   → True  (compound, term at end)
         "joyful"    → False (term + derivational suffix "ful")
         "joyfully"  → False (term + "fully")
-        "joystick"  → False (term at start — too many false positives)
+
+    Examples (term = "ass"):
+        "ass"          → True  (exact)
+        "asses"        → True  (plural)
+        "assmunch"     → True  (compound: ass + munch, consonant-initial suffix)
+        "asshole"      → True  (compound: ass + hole, consonant-initial suffix)
+        "badass"       → True  (compound, term at end)
+        "embarrassing" → False (term embedded mid-word with derivational suffix)
+        "declassify"   → False (term embedded mid-word with derivational suffix)
+        "assign"       → False (Latin prefix "as-" + root, vowel-initial suffix)
+        "assume"       → False (Latin prefix "as-" + root, vowel-initial suffix)
 
     Examples (term = "amen"):
         "amen"       → True  (exact)
@@ -90,11 +102,7 @@ def is_valid_match(word: str, term: str) -> bool:
     if word == term + "s" or word == term + "es":
         return True
 
-    # 3. Compound — term at the END of a word only (e.g. "killjoy" for "joy").
-    #    Start-of-word compound matching (e.g. "joystick"→"joy") is deliberately
-    #    excluded: the false-positive rate is too high ("amendment"→"amen",
-    #    "joystick" is rare in practice) and counting rules call for clear
-    #    semantic compounding, which can't be reliably detected without a dict.
+    # 3. Compound
     pos = word.find(term)
     if pos < 0:
         return False
@@ -102,15 +110,26 @@ def is_valid_match(word: str, term: str) -> bool:
     after = word[pos + len(term):]
 
     if pos == 0:
-        # Term at start — only accept derivational inflections so we can reject
-        # them (doubled-consonant: drugged, running) via the checks below.
-        # A non-suffix remainder means a different root → reject.
-        if after and after not in _DERIVATIONAL_SUFFIXES:
-            # Doubled-consonant inflection (drug→drugged, run→running)
-            if after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
-                return False
+        # Term at start of word.
+        # Accept as a compound only when the suffix looks like an independent
+        # word, not a derivational morpheme:
+        #   - suffix must be at least as long as the term (rules out short
+        #     fragments like "et" in "asset")
+        #   - suffix must start with a consonant — this filters out Latin-prefix
+        #     false positives (assign, assume, assist, assault, assemble…) where
+        #     the letters after "ass" always begin with a vowel because they come
+        #     from Latin "ad-" assimilation, not the English word "ass".
+        #   - suffix must not itself be a derivational suffix
+        if not after:
             return False
-        return False  # derivational suffix or empty — not a compound hit
+        # Doubled-consonant inflection (drug→drugged, run→running)
+        if after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
+            return False
+        if after in _DERIVATIONAL_SUFFIXES:
+            return False
+        if len(after) >= len(term) and after[0] not in _VOWELS:
+            return True
+        return False
 
     # Term is in the middle or at the end.
     # Require the prefix (word[:pos]) to be at least as long as the term itself
@@ -119,11 +138,11 @@ def is_valid_match(word: str, term: str) -> bool:
     #      "ass" in "badass" (pos=3, prefix="bad" len=3 >= 3) → accepted.
     if pos < len(term):
         return False
-    # Also reject when something non-trivial follows the term (e.g. "amen" in
-    # "parliament"→after="t", "tournament"→after="t").  Only allow the term to
-    # be followed by nothing (end of word), a simple plural, or a derivational
-    # suffix — same rules already applied to the start-of-word case.
-    if after and after not in _DERIVATIONAL_SUFFIXES and after not in ("s", "es"):
+    # Only allow the term to be at the end of the word, or followed by a simple
+    # plural suffix.  Derivational suffixes (e.g. -ing in "embarrassing",
+    # -ifying in "declassifying") are NOT accepted here — they mean the term is
+    # embedded inside a longer root, not that it's a compound component.
+    if after and after not in ("s", "es"):
         return False
     return True
 
