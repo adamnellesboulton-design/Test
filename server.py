@@ -227,6 +227,7 @@ def api_search():
             else ("empirical" if fv.lookback_episodes >= 10 else "poisson")
         ),
         "pi_estimate":       round(fv.pi_estimate, 3) if fv.pi_estimate is not None else None,
+        "zero_fraction":     round(sum(1 for ep in result.episodes[:lookback] if ep.count == 0) / max(fv.lookback_episodes, 1), 3),
         "lookback_episodes": fv.lookback_episodes,
         "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [
