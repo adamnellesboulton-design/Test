@@ -249,6 +249,75 @@ header {
 }
 
 /* ── Upload panel ── */
+/* ── Help button ── */
+.btn-help {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s, color .15s;
+  line-height: 1;
+}
+.btn-help:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* ── Help modal ── */
+.help-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.help-panel.visible { display: flex; }
+.help-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: 600px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.help-box h2 {
+  font-size: 1.1rem; font-weight: 700;
+  margin-bottom: 20px; color: var(--text);
+}
+.help-box h3 {
+  font-size: .78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin: 18px 0 8px;
+}
+.help-box h3:first-of-type { margin-top: 0; }
+.help-box p  { font-size: .88rem; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+.help-box ul { list-style: none; padding: 0; margin-bottom: 6px; }
+.help-box ul li {
+  font-size: .88rem; color: var(--text); line-height: 1.6;
+  padding-left: 16px; position: relative;
+}
+.help-box ul li::before { content: "·"; position: absolute; left: 4px; color: var(--muted); }
+.help-kv {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 4px 16px; margin-bottom: 6px;
+}
+.help-kv .k {
+  font-family: monospace; font-size: .82rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 7px;
+  color: var(--accent2); white-space: nowrap; align-self: start;
+}
+.help-kv .v { font-size: .85rem; color: var(--text); line-height: 1.6; align-self: center; }
+.help-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.help-close-row { display: flex; justify-content: flex-end; margin-top: 22px; }
+
 .upload-panel {
   display: none;
   position: fixed;
@@ -565,6 +634,7 @@ tbody td { padding: 9px 12px; }
       <button id="mode-and" onclick="setMode('and')">AND</button>
     </div>
     <button class="btn btn-primary" id="search-btn">Search</button>
+    <button class="btn-help" onclick="openHelp()" title="Search help">?</button>
   </div>
 
   <div class="header-actions">
@@ -702,6 +772,48 @@ tbody td { padding: 9px 12px; }
   </main>
 </div><!-- /main-cols -->
 </div><!-- /app -->
+
+<!-- ── Help modal ── -->
+<div class="help-panel" id="help-panel" onclick="if(event.target===this)closeHelp()">
+  <div class="help-box">
+    <h2>How search works</h2>
+
+    <h3>Adding keywords</h3>
+    <p>Type a word and press <strong>Enter</strong> or <strong>,</strong> to add it as a chip. Add multiple chips to search across keywords at once. Press <strong>Backspace</strong> to remove the last chip.</p>
+
+    <h3>OR vs AND mode</h3>
+    <div class="help-kv">
+      <span class="k">OR</span><span class="v">Count every episode that mentions <em>any</em> keyword. Total = sum of all keyword occurrences.</span>
+      <span class="k">AND</span><span class="v">Only count episodes where <em>every</em> keyword appears at least once.</span>
+    </div>
+
+    <hr class="help-divider">
+
+    <h3>What counts as a match</h3>
+    <div class="help-kv">
+      <span class="k">Exact</span><span class="v">The word itself — <em>drug</em> matches "drug".</span>
+      <span class="k">Plural</span><span class="v"><em>+s</em> or <em>+es</em> — "drugs", "asses" match their base terms. Verb conjugations like "collapses" do <strong>not</strong> count as a plural of "collapse".</span>
+      <span class="k">Compound</span><span class="v">The term used as one component of a compound word. "killjoy" and "badass" count for "joy" and "ass". Derivational forms like "joyful" or "joyfully" do <strong>not</strong> count.</span>
+    </div>
+
+    <h3>Adjacent keywords count once</h3>
+    <p>When two searched keywords appear next to each other in the transcript — e.g. searching <strong>Joe, Biden</strong> and the transcript says "Joe Biden" — that adjacent pair counts as <strong>one</strong> mention, not two. Non-adjacent occurrences each count separately.</p>
+
+    <h3>What's excluded</h3>
+    <ul>
+      <li>The standard intro ("Train by day, Joe Rogan podcast by night…") and all text before it are ignored.</li>
+      <li>Words embedded inside unrelated longer words are filtered out — e.g. "parliament" does not count for "amen", "embarrassing" does not count for "ass".</li>
+      <li>Number words (thirteen – nineteen) do not count for "teen".</li>
+    </ul>
+
+    <h3>Phrases</h3>
+    <p>Type a multi-word phrase as a single chip (e.g. <em>prime minister</em>) to search for that exact sequence of words.</p>
+
+    <div class="help-close-row">
+      <button class="btn btn-secondary" onclick="closeHelp()">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Upload panel ── -->
 <div class="upload-panel" id="upload-panel">
@@ -941,6 +1053,10 @@ function openUpload() {
 function closeUpload() {
   document.getElementById("upload-panel").classList.remove("visible");
 }
+
+function openHelp()  { document.getElementById("help-panel").classList.add("visible"); }
+function closeHelp() { document.getElementById("help-panel").classList.remove("visible"); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeHelp(); });
 
 function addFiles(files) {
   files.forEach(f => {
