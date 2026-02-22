@@ -263,6 +263,49 @@ def _compute_averages(result: SearchResult) -> None:
 
 # ── Multi-keyword merge ───────────────────────────────────────────────────────
 
+def intersect_results(label: str, results: list[SearchResult]) -> SearchResult:
+    """
+    AND-merge: only count episodes where ALL keywords have at least one mention.
+
+    For qualifying episodes the count is the sum of all individual keyword counts
+    (so FV models "how much combined discussion" given co-occurrence).
+    Episodes where any keyword has count == 0 are zeroed out, pulling down the
+    lambda estimate and pushing up the zero-inflation term.
+    """
+    if not results:
+        return SearchResult(keyword=label)
+    if len(results) == 1:
+        r = SearchResult(keyword=label, episodes=results[0].episodes)
+        _compute_averages(r)
+        return r
+
+    kw_counts: list[dict[int, int]] = [
+        {ep.episode_id: ep.count for ep in res.episodes}
+        for res in results
+    ]
+
+    merged_episodes: list[EpisodeResult] = []
+    for ep in results[0].episodes:
+        eid = ep.episode_id
+        if all(kw.get(eid, 0) > 0 for kw in kw_counts):
+            cnt = sum(kw.get(eid, 0) for kw in kw_counts)
+        else:
+            cnt = 0
+        merged_episodes.append(EpisodeResult(
+            episode_id=eid,
+            title=ep.title,
+            episode_date=ep.episode_date,
+            episode_number=ep.episode_number,
+            duration_seconds=ep.duration_seconds,
+            count=cnt,
+            per_minute=per_minute_rate(cnt, ep.duration_seconds),
+        ))
+
+    merged = SearchResult(keyword=label, episodes=merged_episodes)
+    _compute_averages(merged)
+    return merged
+
+
 def merge_results(label: str, results: list[SearchResult]) -> SearchResult:
     """
     Merge multiple SearchResults (one per keyword) by summing episode counts.

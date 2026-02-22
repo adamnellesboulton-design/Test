@@ -48,6 +48,34 @@ header {
   flex: 1;
   min-width: 260px;
   gap: 8px;
+  align-items: center;
+}
+/* AND/OR mode toggle — only shown when 2+ keywords are present */
+.mode-toggle {
+  display: none;          /* hidden by default; JS sets display:flex */
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.mode-toggle button {
+  padding: 5px 10px;
+  background: var(--surface);
+  color: var(--muted);
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  line-height: 1;
+}
+.mode-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.mode-toggle button:first-child {
+  border-right: 1px solid var(--border);
 }
 .tag-input-wrap {
   flex: 1;
@@ -532,6 +560,10 @@ tbody td { padding: 9px 12px; }
     <div class="tag-input-wrap" id="tag-wrap">
       <input type="text" id="search-input" placeholder="Add keyword… e.g. million" autocomplete="off"/>
     </div>
+    <div class="mode-toggle" id="mode-toggle" title="OR — sum mentions across keywords&#10;AND — only episodes where ALL keywords appear">
+      <button id="mode-or"  class="active" onclick="setMode('or')">OR</button>
+      <button id="mode-and" onclick="setMode('and')">AND</button>
+    </div>
     <button class="btn btn-primary" id="search-btn">Search</button>
   </div>
 
@@ -609,11 +641,11 @@ tbody td { padding: 9px 12px; }
       <!-- Charts grid -->
       <div class="charts-grid">
         <div class="card">
-          <div class="card-title">Mentions per episode</div>
+          <div class="card-title" data-trend-title>Mentions per episode</div>
           <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
         </div>
         <div class="card">
-          <div class="card-title">Polymarket fair value — next episode</div>
+          <div class="card-title" data-fv-chart>Polymarket fair value — next episode</div>
           <div class="lookback-row">
             <label>Lookback:</label>
             <select id="lookback-sel">
@@ -631,7 +663,7 @@ tbody td { padding: 9px 12px; }
 
       <!-- Fair value grid -->
       <div class="card">
-        <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
+        <div class="card-title" data-fv-grid>Fair value — P(≥ N mentions) in next episode</div>
         <div class="fv-grid" id="fv-grid"></div>
       </div>
 
@@ -739,6 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateSearchPlaceholder();
     }
   });
+  document.getElementById("search-input").addEventListener("input", updateModeToggleVisibility);
   document.getElementById("lookback-sel").addEventListener("change", () => {
     if (currentKeyword) doSearch();
   });
@@ -987,10 +1020,28 @@ async function submitUpload() {
 // ────────────────────────────────────────────────────────────
 // ── Tag-chip keyword helpers ──────────────────────────────────────────────────
 
+// ── AND / OR mode toggle ──────────────────────────────────────────────────────
+let searchMode = "or";   // "or" | "and"
+
+function setMode(m) {
+  searchMode = m;
+  document.getElementById("mode-or").classList.toggle("active",  m === "or");
+  document.getElementById("mode-and").classList.toggle("active", m === "and");
+}
+
+function updateModeToggleVisibility() {
+  const chips = document.querySelectorAll(".kw-tag").length;
+  const cur   = document.getElementById("search-input").value.trim();
+  // Show when ≥2 keywords are present (chips + possibly one in the input box)
+  const total = chips + (cur ? 1 : 0);
+  document.getElementById("mode-toggle").style.display = total >= 2 ? "flex" : "none";
+}
+
 function updateSearchPlaceholder() {
   const inp = document.getElementById("search-input");
   const hasChips = document.querySelectorAll(".kw-tag").length > 0;
   inp.placeholder = hasChips ? "Add another keyword…" : "Add keyword… e.g. million";
+  updateModeToggleVisibility();
 }
 
 function addKwTag(raw) {
@@ -1047,7 +1098,9 @@ async function doSearch() {
   btn.textContent = "Searching…";
 
   try {
-    let url = `/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}`;
+    const multi = keywords.length > 1;
+    const mode  = multi ? searchMode : "or";
+    let url = `/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}&mode=${mode}`;
     if (episodeIdsParam) url += `&episode_ids=${episodeIdsParam}`;
 
     const r = await fetch(url);
@@ -1097,7 +1150,14 @@ function renderResults(data) {
      </div>`
   ).join("");
 
-  renderTrendChart(eps, data.per_keyword);
+  const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
+
+  // Set of episode IDs where co-occurrence happened (AND mode only)
+  const coOccurIds = isAnd
+    ? new Set(data.episodes.filter(e => e.count > 0).map(e => e.episode_id))
+    : null;
+
+  renderTrendChart(eps, data.per_keyword, isAnd, coOccurIds);
 
   const modelLabel = {
     "poisson":       "Poisson",
@@ -1110,7 +1170,17 @@ function renderResults(data) {
     : "";
   document.getElementById("fv-model-badge").textContent = modelLabel + piSuffix;
 
-  renderFVChart(fv, data.per_keyword_fv);
+  // Update all card titles to reflect AND co-occurrence mode
+  document.querySelector(".card-title[data-trend-title]").textContent =
+    isAnd ? "Co-occurrence mentions per episode" : "Mentions per episode";
+  document.querySelector(".card-title[data-fv-chart]").textContent =
+    isAnd ? "Polymarket fair value — co-occurrence next episode" : "Polymarket fair value — next episode";
+  document.querySelector(".card-title[data-fv-grid]").textContent =
+    isAnd ? "Fair value — P(both words in ≥ N mentions) next episode" : "Fair value — P(≥ N mentions) in next episode";
+
+  // In AND mode show the single merged FV bar (co-occurrence FV);
+  // in OR mode show per-keyword grouped bars.
+  renderFVChart(fv, isAnd ? null : data.per_keyword_fv);
   renderFVGrid(fv);
   renderTable(eps);
 
@@ -1119,7 +1189,7 @@ function renderResults(data) {
 }
 
 // ── Trend chart ──────────────────────────────────────────────
-function renderTrendChart(episodes, perKeyword) {
+function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   const ctx = document.getElementById("trend-chart").getContext("2d");
   if (trendChart) trendChart.destroy();
 
@@ -1141,7 +1211,10 @@ function renderTrendChart(episodes, perKeyword) {
     barDatasets = perKeyword.map((kw, i) => {
       const col = KW_COLORS[i % KW_COLORS.length];
       const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
-      const counts = eps.map(e => idxMap[e.episode_id] ?? 0);
+      // In AND mode zero out episodes where co-occurrence didn't happen
+      const counts = eps.map(e =>
+        (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0)
+      );
       return { label: kw.keyword, data: counts, backgroundColor: col + "cc", borderColor: col,
                borderWidth: 1, borderRadius: 3, type: "bar", order: 2, stack: "kw" };
     });
@@ -1192,7 +1265,12 @@ function renderFVChart(fv, pkFv) {
   const labels   = fv.buckets.map(b => b.label);
   const multiKw  = pkFv && pkFv.length > 1;
 
-  // Build one dataset per keyword (grouped bars) or one merged dataset
+  // AND mode (pkFv===null): single merged co-occurrence bar in a distinct teal colour.
+  // OR multi-kw mode: one grouped bar per keyword.
+  // Single keyword: single bar.
+  const isAndMode = pkFv === null;
+  const AND_COLOR = "#06d6a0";
+
   const datasets = multiKw
     ? pkFv.map((kw, i) => {
         const col = KW_COLORS[i % KW_COLORS.length];
@@ -1205,10 +1283,10 @@ function renderFVChart(fv, pkFv) {
         };
       })
     : [{
-        label: (pkFv && pkFv.length === 1 ? pkFv[0].keyword : "P(≥ N) %"),
+        label: isAndMode ? "co-occurrence" : (pkFv && pkFv.length === 1 ? pkFv[0].keyword : "P(≥ N) %"),
         data: fv.buckets.map(b => b.pct),
-        backgroundColor: KW_COLORS[0] + "cc",
-        borderColor: KW_COLORS[0],
+        backgroundColor: (isAndMode ? AND_COLOR : KW_COLORS[0]) + "cc",
+        borderColor: isAndMode ? AND_COLOR : KW_COLORS[0],
         borderWidth: 1, borderRadius: 4,
       }];
 
@@ -1218,7 +1296,7 @@ function renderFVChart(fv, pkFv) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: multiKw, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        legend: { display: multiKw || isAndMode, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
