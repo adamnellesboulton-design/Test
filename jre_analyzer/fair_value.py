@@ -145,34 +145,27 @@ def calculate_fair_value(
 
     # ── Zero-inflation detection ──────────────────────────────────────────────
     # Many JRE keywords are bimodal: 0 mentions most episodes, heavy mentions
-    # when the topic actually comes up.  We detect this by comparing the
-    # observed zero fraction against the best-available model's predicted
-    # zero probability.  If observed zeros are substantially higher we fit a
-    # Zero-Inflated NB (ZINB).
+    # when the topic actually comes up (e.g. a recurring guest).  ZINB
+    # explicitly models structural zeros (topic didn't arise at all, prob π)
+    # separately from the NB count distribution when it does arise.
+    #
+    # Detection strategy: try fitting ZINB whenever ≥25% of episodes are zero
+    # AND the data is overdispersed.  _zinb_pmf_dict internally checks that
+    # observed zeros exceed the NB baseline; the resulting π value is the real
+    # quality gate — π < 0.05 means the structural-zero component is negligible
+    # and NB is equally good, so we fall back to NB in that case.
     zero_fraction = sum(1 for c in int_counts if c == 0) / n
-
-    # Expected P(X=0) under NB (or Poisson as fallback)
-    expected_p0 = math.exp(-lam)   # Poisson default
-    if HAS_SCIPY and overdispersed and variance > mean and mean > 0:
-        try:
-            p_nb = mean / variance
-            r_nb = mean * p_nb / (1 - p_nb)
-            if r_nb > 0 and 0 < p_nb < 1:
-                expected_p0 = float(stats.nbinom.pmf(0, r_nb, p_nb))
-        except Exception:
-            pass
-
-    # Trigger ZINB when: ≥30% zeros AND observed zeros exceed NB prediction
-    # by at least 15 percentage points (absolute).
-    zero_inflated = zero_fraction >= 0.3 and zero_fraction > expected_p0 + 0.15
 
     zinb_pmf: Optional[dict[int, float]] = None
     zinb_sf:  Optional[dict[int, float]] = None
     pi_est:   Optional[float]            = None
-    if zero_inflated and HAS_SCIPY and overdispersed and variance > 0 and mean > 0:
+    if zero_fraction >= 0.25 and overdispersed and HAS_SCIPY and variance > 0 and mean > 0:
         zinb_pmf, pi_est = _zinb_pmf_dict(mean, variance, zero_fraction)
         if zinb_pmf:
             zinb_sf = _sf_from_pmf(zinb_pmf)
+
+    # Accept ZINB only when the structural-zero component is non-trivial (≥5%).
+    zero_inflated = zinb_pmf is not None and pi_est is not None and pi_est >= 0.05
 
     return FairValueResult(
         keyword=result.keyword,
