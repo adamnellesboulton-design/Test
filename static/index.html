@@ -1197,14 +1197,6 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
   const stacked = perKeyword && perKeyword.length > 1;
 
-  const avgsData = currentData.averages;
-  const avgLines = [
-    { label: "Last 1",   value: avgsData.last_1,   color: "#ffffff" },
-    { label: "Last 5",   value: avgsData.last_5,   color: "#00b4d8" },
-    { label: "Last 20",  value: avgsData.last_20,  color: "#90e0ef" },
-    { label: "Last 50",  value: avgsData.last_50,  color: "#ffd166" },
-    { label: "Last 100", value: avgsData.last_100, color: "#06d6a0" },
-  ].filter(a => a.value !== null && a.value !== undefined);
 
   let barDatasets;
   if (stacked) {
@@ -1230,15 +1222,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     }];
   }
 
-  const datasets = [
-    ...barDatasets,
-    ...avgLines.map(a => ({
-      label: `${a.label} avg: ${a.value.toFixed(2)}`,
-      data: Array(eps.length).fill(a.value),
-      borderColor: a.color, borderWidth: 1.5, borderDash: [4, 4],
-      pointRadius: 0, type: "line", order: 1,
-    }))
-  ];
+  const datasets = [...barDatasets];
 
   trendChart = new Chart(ctx, {
     data: { labels, datasets },
