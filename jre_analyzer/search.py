@@ -115,6 +115,12 @@ def is_valid_match(word: str, term: str) -> bool:
     #      "ass" in "badass" (pos=3, prefix="bad" len=3 >= 3) → accepted.
     if pos < len(term):
         return False
+    # Also reject when something non-trivial follows the term (e.g. "amen" in
+    # "parliament"→after="t", "tournament"→after="t").  Only allow the term to
+    # be followed by nothing (end of word), a simple plural, or a derivational
+    # suffix — same rules already applied to the start-of-word case.
+    if after and after not in _DERIVATIONAL_SUFFIXES and after not in ("s", "es"):
+        return False
     return True
 
 
