@@ -21,6 +21,7 @@ No confidence intervals — counts are exact totals from the transcript.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -320,3 +321,105 @@ def get_minute_breakdown(
         MinuteResult(minute=m, count=c)
         for m, c in sorted(minute_counts.items())
     ]
+
+
+# ── Phrase search (multi-word) ────────────────────────────────────────────────
+
+def _phrase_pattern(phrase: str) -> re.Pattern:
+    """Word-boundary regex for a multi-word phrase (case-insensitive)."""
+    return re.compile(r"\b" + re.escape(phrase.strip().lower()) + r"\b", re.IGNORECASE)
+
+
+def phrase_search(
+    db: Database,
+    phrase: str,
+    episode_ids: Optional[list[int]] = None,
+) -> SearchResult:
+    """
+    Count occurrences of a multi-word phrase by scanning raw transcript text.
+    Returns a SearchResult compatible with single-keyword results.
+    """
+    pattern = _phrase_pattern(phrase)
+    all_eps = db.get_episode_list_indexed(episode_ids=episode_ids)
+    episodes: list[EpisodeResult] = []
+
+    for ep_row in all_eps:
+        eid = ep_row["id"]
+        segments = db.get_transcript(eid)
+        count = sum(len(pattern.findall(seg.get("text", ""))) for seg in segments)
+        dur = ep_row["duration_seconds"] or 0
+        episodes.append(EpisodeResult(
+            episode_id=eid,
+            title=ep_row["title"],
+            episode_date=ep_row["episode_date"],
+            episode_number=ep_row["episode_number"],
+            duration_seconds=dur,
+            count=count,
+            per_minute=per_minute_rate(count, dur),
+        ))
+
+    result = SearchResult(keyword=phrase.strip().lower(), episodes=episodes)
+    _compute_averages(result)
+    return result
+
+
+def get_phrase_minute_breakdown(
+    db: Database, phrase: str, episode_id: int
+) -> list[MinuteResult]:
+    """Per-minute counts for a phrase, derived from raw transcript segments."""
+    pattern = _phrase_pattern(phrase)
+    segments = db.get_transcript(episode_id)
+    minute_counts: dict[int, int] = {}
+    for seg in segments:
+        cnt = len(pattern.findall(seg.get("text", "")))
+        if cnt:
+            minute = int(seg.get("start", 0) // 60)
+            minute_counts[minute] = minute_counts.get(minute, 0) + cnt
+    return [MinuteResult(minute=m, count=c) for m, c in sorted(minute_counts.items())]
+
+
+# ── Context (KWIC) ────────────────────────────────────────────────────────────
+
+def get_context(
+    db: Database,
+    keyword: str,
+    episode_id: int,
+    context_chars: int = 100,
+) -> list[dict]:
+    """
+    Return KWIC (keyword-in-context) snippets for *keyword* in *episode_id*.
+
+    Works for both single words (using is_valid_match rules) and phrases.
+    Each hit: {minute, second, prefix, match, suffix}
+    """
+    term = keyword.strip().lower()
+    is_phrase = " " in term
+
+    if is_phrase:
+        pattern = _phrase_pattern(term)
+    else:
+        # Match any token containing the term as a substring, then filter
+        pattern = re.compile(r"\b\w*" + re.escape(term) + r"\w*\b", re.IGNORECASE)
+
+    segments = db.get_transcript(episode_id)
+    hits: list[dict] = []
+
+    for seg in segments:
+        text = seg.get("text", "")
+        for m in pattern.finditer(text):
+            if not is_phrase and not is_valid_match(m.group().lower(), term):
+                continue
+            s = max(0, m.start() - context_chars)
+            e = min(len(text), m.end() + context_chars)
+            prefix = ("…" if s > 0 else "") + text[s:m.start()]
+            suffix = text[m.end():e] + ("…" if e < len(text) else "")
+            ts = seg.get("start", 0)
+            hits.append({
+                "minute": int(ts // 60),
+                "second": int(ts % 60),
+                "prefix": prefix,
+                "match":  m.group(),
+                "suffix": suffix,
+            })
+
+    return hits

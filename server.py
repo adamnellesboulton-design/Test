@@ -20,7 +20,10 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
-from jre_analyzer.search import search, get_minute_breakdown, merge_results
+from jre_analyzer.search import (
+    search, get_minute_breakdown, merge_results,
+    phrase_search, get_phrase_minute_breakdown, get_context,
+)
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
 from jre_analyzer.fetch_transcripts import parse_transcript_txt, extract_episode_date
 
@@ -175,10 +178,15 @@ def api_search():
             return jsonify({"error": "Invalid episode_ids"}), 400
 
     # Support comma-separated multi-keyword queries (e.g. "million, billion")
+    # Phrases (terms containing spaces) are searched against raw transcript text.
     terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
     if not terms:
         return jsonify({"error": "keyword required"}), 400
-    individual_results = [search(db, t, episode_ids=episode_ids) for t in terms]
+    individual_results = [
+        phrase_search(db, t, episode_ids=episode_ids) if " " in t
+        else search(db, t, episode_ids=episode_ids)
+        for t in terms
+    ]
     result = merge_results(keyword, individual_results)
 
     def _r(v, digits=4):
@@ -266,14 +274,22 @@ def api_minutes():
         return jsonify({"error": "episode_id must be an integer"}), 400
 
     terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
-    individual_results = [search(db, t, episode_ids=[eid]) for t in terms]
+    individual_results = [
+        phrase_search(db, t, episode_ids=[eid]) if " " in t
+        else search(db, t, episode_ids=[eid])
+        for t in terms
+    ]
     result = merge_results(keyword, individual_results)
     ep     = result.episode_by_id(eid)
 
     # Merge per-minute breakdowns across all keywords
     merged_counts: dict[int, int] = {}
     for t in terms:
-        for mr in get_minute_breakdown(db, t, eid):
+        breakdown = (
+            get_phrase_minute_breakdown(db, t, eid) if " " in t
+            else get_minute_breakdown(db, t, eid)
+        )
+        for mr in breakdown:
             merged_counts[mr.minute] = merged_counts.get(mr.minute, 0) + mr.count
 
     if not merged_counts:
@@ -292,6 +308,28 @@ def api_minutes():
             for m in full_range
         ],
     })
+
+
+# ── API: context (KWIC) ───────────────────────────────────────────────────────
+
+@app.route("/api/context")
+def api_context():
+    keyword    = request.args.get("keyword", "").strip()
+    episode_id = request.args.get("episode_id", "").strip()
+    if not keyword or not episode_id:
+        return jsonify({"error": "keyword and episode_id required"}), 400
+    try:
+        eid = int(episode_id)
+    except ValueError:
+        return jsonify({"error": "episode_id must be an integer"}), 400
+
+    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
+    all_hits: list[dict] = []
+    for t in terms:
+        all_hits.extend(get_context(db, t, eid))
+
+    all_hits.sort(key=lambda h: (h["minute"], h["second"]))
+    return jsonify({"episode_id": eid, "keyword": keyword, "hits": all_hits})
 
 
 # ── API: reindex ──────────────────────────────────────────────────────────────
