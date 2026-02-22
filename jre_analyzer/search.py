@@ -250,6 +250,55 @@ def _compute_averages(result: SearchResult) -> None:
     result.avg_pm_last_100 = _rolling_avg_pm(eps, 100)
 
 
+# ── Multi-keyword merge ───────────────────────────────────────────────────────
+
+def merge_results(label: str, results: list[SearchResult]) -> SearchResult:
+    """
+    Merge multiple SearchResults (one per keyword) by summing episode counts.
+
+    Episode order and metadata are taken from the first result (all results
+    cover the same set of indexed episodes in the same newest-first order).
+    The merged per_minute rate is recomputed from the summed count.
+    """
+    if not results:
+        return SearchResult(keyword=label)
+    if len(results) == 1:
+        results[0] = SearchResult(
+            keyword=label,
+            episodes=results[0].episodes,
+        )
+        _compute_averages(results[0])
+        return results[0]
+
+    # Sum counts per episode across all keyword results
+    combined_counts: dict[int, int] = {}
+    for res in results:
+        for ep in res.episodes:
+            combined_counts[ep.episode_id] = (
+                combined_counts.get(ep.episode_id, 0) + ep.count
+            )
+
+    # Rebuild episodes in the canonical order from the first result
+    merged_episodes: list[EpisodeResult] = []
+    for ep in results[0].episodes:
+        cnt = combined_counts.get(ep.episode_id, 0)
+        merged_episodes.append(
+            EpisodeResult(
+                episode_id=ep.episode_id,
+                title=ep.title,
+                episode_date=ep.episode_date,
+                episode_number=ep.episode_number,
+                duration_seconds=ep.duration_seconds,
+                count=cnt,
+                per_minute=per_minute_rate(cnt, ep.duration_seconds),
+            )
+        )
+
+    merged = SearchResult(keyword=label, episodes=merged_episodes)
+    _compute_averages(merged)
+    return merged
+
+
 # ── Minute breakdown ──────────────────────────────────────────────────────────
 
 def get_minute_breakdown(

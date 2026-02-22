@@ -20,7 +20,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
-from jre_analyzer.search import search, get_minute_breakdown
+from jre_analyzer.search import search, get_minute_breakdown, merge_results
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
 from jre_analyzer.fetch_transcripts import parse_transcript_txt, extract_episode_date
 
@@ -174,7 +174,12 @@ def api_search():
         except ValueError:
             return jsonify({"error": "Invalid episode_ids"}), 400
 
-    result = search(db, keyword, episode_ids=episode_ids)
+    # Support comma-separated multi-keyword queries (e.g. "million, billion")
+    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
+    if not terms:
+        return jsonify({"error": "keyword required"}), 400
+    individual_results = [search(db, t, episode_ids=episode_ids) for t in terms]
+    result = merge_results(keyword, individual_results)
 
     def _r(v, digits=4):
         return round(v, digits) if v is not None else None
@@ -259,16 +264,23 @@ def api_minutes():
     except ValueError:
         return jsonify({"error": "episode_id must be an integer"}), 400
 
-    result      = search(db, keyword, episode_ids=[eid])
-    ep          = result.episode_by_id(eid)
-    minute_data = get_minute_breakdown(db, keyword, eid)
+    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
+    individual_results = [search(db, t, episode_ids=[eid]) for t in terms]
+    result = merge_results(keyword, individual_results)
+    ep     = result.episode_by_id(eid)
 
-    if not minute_data:
+    # Merge per-minute breakdowns across all keywords
+    merged_counts: dict[int, int] = {}
+    for t in terms:
+        for mr in get_minute_breakdown(db, t, eid):
+            merged_counts[mr.minute] = merged_counts.get(mr.minute, 0) + mr.count
+
+    if not merged_counts:
         return jsonify({"episode_id": eid, "keyword": keyword, "minutes": []})
 
-    minutes    = [r.minute for r in minute_data]
+    minutes    = list(merged_counts.keys())
     full_range = list(range(min(minutes), max(minutes) + 1))
-    count_map  = {r.minute: r.count for r in minute_data}
+    count_map  = merged_counts
 
     return jsonify({
         "episode_id": eid,
