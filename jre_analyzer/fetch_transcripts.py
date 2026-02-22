@@ -28,6 +28,11 @@ _TIMESTAMP_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The standard JRE intro phrase.  Any segment whose text contains this
+# (case-insensitive) — and every segment before it — is discarded so that
+# pre-show boilerplate never pollutes keyword counts.
+_INTRO_MARKER = "train by day, joe rogan podcast by night, all day"
+
 _DATE_RE = re.compile(
     r"episode\s+date\s*:\s*([a-z]+)\s+(\d{1,2}),?\s*(\d{4})",
     re.IGNORECASE,
@@ -60,11 +65,25 @@ def extract_episode_date(content: str) -> Optional[str]:
         return None
 
 
+def _strip_intro(segments: list[dict]) -> list[dict]:
+    """
+    Drop all segments up to and including the one containing the JRE intro
+    phrase ("Train by day, Joe Rogan podcast by night, all day.").
+    If the phrase is not found the segments are returned unchanged.
+    """
+    for i, seg in enumerate(segments):
+        if _INTRO_MARKER in seg.get("text", "").lower():
+            return segments[i + 1:]
+    return segments
+
+
 def parse_transcript_txt(content: str) -> tuple[list[dict], int]:
     """
     Parse a transcript .txt file.
 
     Returns (segments, duration_seconds).
+    Pre-show boilerplate (everything up to and including the standard JRE
+    intro phrase) is stripped before returning.
     """
     segments: list[dict] = []
     current_start: Optional[float] = None
@@ -94,6 +113,8 @@ def parse_transcript_txt(content: str) -> tuple[list[dict], int]:
         text = " ".join(current_lines).strip()
         if text:
             segments.append({"start": current_start, "text": text})
+
+    segments = _strip_intro(segments)
 
     # Estimate duration as last timestamp + 60 s padding
     duration = int(last_start) + 60 if last_start else 0
