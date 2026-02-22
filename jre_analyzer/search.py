@@ -68,10 +68,16 @@ def is_valid_match(word: str, term: str) -> bool:
         "joys"      → True  (plural)
         "joyes"     → True  (plural -es)
         "killjoy"   → True  (compound, term at end)
-        "joystick"  → True  (compound, term at start, "stick" is not a suffix)
         "joyful"    → False (term + derivational suffix "ful")
         "joyfully"  → False (term + "fully")
-        "enjoyment" → True  (term embedded, preceded by "en")
+        "joystick"  → False (term at start — too many false positives)
+
+    Examples (term = "amen"):
+        "amen"       → True  (exact)
+        "amens"      → True  (plural)
+        "amendment"  → False (term at start of a longer root)
+        "parliament" → False (term embedded mid-word)
+        "tournament" → False (term embedded mid-word)
     """
     if len(word) < len(term):
         return False
@@ -84,7 +90,11 @@ def is_valid_match(word: str, term: str) -> bool:
     if word == term + "s" or word == term + "es":
         return True
 
-    # 3. Compound — term appears as substring
+    # 3. Compound — term at the END of a word only (e.g. "killjoy" for "joy").
+    #    Start-of-word compound matching (e.g. "joystick"→"joy") is deliberately
+    #    excluded: the false-positive rate is too high ("amendment"→"amen",
+    #    "joystick" is rare in practice) and counting rules call for clear
+    #    semantic compounding, which can't be reliably detected without a dict.
     pos = word.find(term)
     if pos < 0:
         return False
@@ -92,21 +102,15 @@ def is_valid_match(word: str, term: str) -> bool:
     after = word[pos + len(term):]
 
     if pos == 0:
-        # Term is at the start of the word.
-        # Reject if what follows is a pure derivational suffix.
-        if after in _DERIVATIONAL_SUFFIXES:
+        # Term at start — only accept derivational inflections so we can reject
+        # them (doubled-consonant: drugged, running) via the checks below.
+        # A non-suffix remainder means a different root → reject.
+        if after and after not in _DERIVATIONAL_SUFFIXES:
+            # Doubled-consonant inflection (drug→drugged, run→running)
+            if after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
+                return False
             return False
-        # Also reject doubled-consonant inflections: drug→drugged (after="ged"),
-        # run→running (after="ning").  If the first char of `after` matches the
-        # last char of `term`, check whether the remainder is a suffix.
-        if after and after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
-            return False
-        # Reject if the after-part begins with the term again — this means the
-        # term is just a repeated phoneme inside a longer root word, not a real
-        # compound.  e.g. "ass" + "assinate" → "assassinate" should NOT match.
-        if after[:len(term)] == term:
-            return False
-        return True
+        return False  # derivational suffix or empty — not a compound hit
 
     # Term is in the middle or at the end.
     # Require the prefix (word[:pos]) to be at least as long as the term itself
