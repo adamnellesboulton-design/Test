@@ -393,6 +393,96 @@ def merge_results(label: str, results: list[SearchResult]) -> SearchResult:
     return merged
 
 
+def search_multi_adjacent(
+    db: Database,
+    label: str,
+    terms: list[str],
+    individual_results: list[SearchResult],
+    mode: str = "or",
+    episode_ids: Optional[list[int]] = None,
+) -> SearchResult:
+    """
+    Multi-keyword merge that counts adjacent keyword occurrences as one mention.
+
+    When two or more searched terms appear as consecutive tokens in the
+    transcript (e.g. "Joe Biden" for terms ["joe", "biden"]), the entire
+    contiguous run counts as ONE mention rather than one per keyword.
+    Non-adjacent occurrences of each keyword still count individually.
+
+    For AND mode the same zero-episode filter as intersect_results applies:
+    episodes missing any keyword are zeroed out.
+
+    individual_results must be the pre-computed per-keyword SearchResults
+    (used for fast pre-filtering without re-querying the database).
+    """
+    # Build per-keyword episode count maps from the pre-computed results.
+    kw_ep_counts = [
+        {ep.episode_id: ep.count for ep in res.episodes}
+        for res in individual_results
+    ]
+
+    # For AND mode: derive the set of qualifying episodes (all keywords present).
+    if mode == "and":
+        sets = [{eid for eid, c in kw.items() if c > 0} for kw in kw_ep_counts]
+        qualifying_ids: set[int] = set.intersection(*sets) if sets else set()
+
+    all_eps = db.get_episode_list_indexed(episode_ids=episode_ids)
+    episodes: list[EpisodeResult] = []
+
+    for ep_row in all_eps:
+        eid = ep_row["id"]
+        dur = ep_row["duration_seconds"] or 0
+
+        # AND filter: zero out episodes missing any keyword.
+        if mode == "and" and eid not in qualifying_ids:
+            episodes.append(EpisodeResult(
+                episode_id=eid, title=ep_row["title"],
+                episode_date=ep_row["episode_date"],
+                episode_number=ep_row["episode_number"],
+                duration_seconds=dur, count=0, per_minute=0.0,
+            ))
+            continue
+
+        # Fast path: skip transcript scan for episodes with no keyword hits at all.
+        if not any(kw.get(eid, 0) > 0 for kw in kw_ep_counts):
+            episodes.append(EpisodeResult(
+                episode_id=eid, title=ep_row["title"],
+                episode_date=ep_row["episode_date"],
+                episode_number=ep_row["episode_number"],
+                duration_seconds=dur, count=0, per_minute=0.0,
+            ))
+            continue
+
+        # Scan the raw transcript counting contiguous runs of keyword matches.
+        # Each run = 1 mention regardless of how many terms appear in the run.
+        # in_run resets between segments so words across segment boundaries
+        # are not treated as adjacent.
+        segments = db.get_transcript(eid)
+        count = 0
+        for seg in segments:
+            in_run = False
+            tokens = re.findall(r"[a-z]+", seg.get("text", "").lower())
+            for token in tokens:
+                if any(is_valid_match(token, t) for t in terms):
+                    if not in_run:
+                        count += 1
+                        in_run = True
+                else:
+                    in_run = False
+
+        episodes.append(EpisodeResult(
+            episode_id=eid, title=ep_row["title"],
+            episode_date=ep_row["episode_date"],
+            episode_number=ep_row["episode_number"],
+            duration_seconds=dur, count=count,
+            per_minute=per_minute_rate(count, dur),
+        ))
+
+    result = SearchResult(keyword=label, episodes=episodes)
+    _compute_averages(result)
+    return result
+
+
 # ── Minute breakdown ──────────────────────────────────────────────────────────
 
 def get_minute_breakdown(

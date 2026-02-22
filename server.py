@@ -23,6 +23,7 @@ from jre_analyzer.analyzer import index_episode, index_all
 from jre_analyzer.search import (
     search, get_minute_breakdown, merge_results, intersect_results,
     phrase_search, get_phrase_minute_breakdown, get_context,
+    search_multi_adjacent,
 )
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
 from jre_analyzer.fetch_transcripts import parse_transcript_txt, extract_episode_date
@@ -188,8 +189,16 @@ def api_search():
         else search(db, t, episode_ids=episode_ids)
         for t in terms
     ]
-    result = (intersect_results(keyword, individual_results) if mode == "and"
-              else merge_results(keyword, individual_results))
+    # For multi-keyword single-word queries, deduplicate adjacent occurrences:
+    # "Joe Biden" counts as 1 mention, not 2.
+    if len(terms) > 1 and all(" " not in t for t in terms):
+        result = search_multi_adjacent(
+            db, keyword, terms, individual_results,
+            mode=mode, episode_ids=episode_ids,
+        )
+    else:
+        result = (intersect_results(keyword, individual_results) if mode == "and"
+                  else merge_results(keyword, individual_results))
 
     def _r(v, digits=4):
         return round(v, digits) if v is not None else None
