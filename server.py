@@ -270,6 +270,20 @@ def api_search():
                 {"episode_id": ep.episode_id, "count": ep.count, "per_minute": _r(ep.per_minute)}
                 for ep in res.episodes
             ],
+            "averages": {
+                "last_1":   res.avg_last_1,
+                "last_5":   res.avg_last_5,
+                "last_20":  res.avg_last_20,
+                "last_50":  res.avg_last_50,
+                "last_100": res.avg_last_100,
+            },
+            "averages_per_min": {
+                "last_1":   _r(res.avg_pm_last_1),
+                "last_5":   _r(res.avg_pm_last_5),
+                "last_20":  _r(res.avg_pm_last_20),
+                "last_50":  _r(res.avg_pm_last_50),
+                "last_100": _r(res.avg_pm_last_100),
+            },
         })
         kw_fv    = calculate_fair_value(res, lookback=lookback)
         kw_sf    = recommended_sf(kw_fv)

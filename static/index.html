@@ -434,7 +434,14 @@ header {
 .stat-label { font-size: .75rem; color: var(--muted); margin-top: 4px; }
 
 /* ── Averages row ── */
-.avgs-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+#avgs-container { margin-bottom: 20px; }
+.avgs-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.avg-kw-block { margin-bottom: 12px; }
+.avg-kw-block:last-child { margin-bottom: 0; }
+.avg-kw-label, .avg-row-label {
+  font-size: .73rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted); margin-bottom: 5px;
+}
 .avg-pill {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -706,7 +713,7 @@ tbody td { padding: 9px 12px; }
       </div>
 
       <!-- Averages pills -->
-      <div class="avgs-row" id="avgs-row"></div>
+      <div id="avgs-container"></div>
 
       <!-- Charts grid -->
       <div class="charts-grid">
@@ -1249,24 +1256,42 @@ function renderResults(data) {
   document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
 
   // Average pills
-  const avgspm = data.averages_per_min;
-  const pillDefs = [
-    {cls:"ep1",   n:"Last 1",   v: avgs.last_1,   pm: avgspm.last_1},
-    {cls:"ep5",   n:"Last 5",   v: avgs.last_5,   pm: avgspm.last_5},
-    {cls:"ep20",  n:"Last 20",  v: avgs.last_20,  pm: avgspm.last_20},
-    {cls:"ep50",  n:"Last 50",  v: avgs.last_50,  pm: avgspm.last_50},
-    {cls:"ep100", n:"Last 100", v: avgs.last_100, pm: avgspm.last_100},
-  ];
-  const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
-  document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
-    `<div class="avg-pill ${p.cls}">
-       <span class="n">${p.n}</span>
-       <span class="v">${fmt(p.v)}</span>
-       <span class="pm">${fmtPm(p.pm)}</span>
-     </div>`
-  ).join("");
-
   const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
+  const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
+
+  const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
+  const makePills = (a, apm) => {
+    const defs = [
+      {cls:"ep1",   n:"Last 1",   v: a.last_1,   pm: apm.last_1},
+      {cls:"ep5",   n:"Last 5",   v: a.last_5,   pm: apm.last_5},
+      {cls:"ep20",  n:"Last 20",  v: a.last_20,  pm: apm.last_20},
+      {cls:"ep50",  n:"Last 50",  v: a.last_50,  pm: apm.last_50},
+      {cls:"ep100", n:"Last 100", v: a.last_100, pm: apm.last_100},
+    ];
+    return defs.map(p =>
+      `<div class="avg-pill ${p.cls}">
+         <span class="n">${p.n}</span>
+         <span class="v">${fmt(p.v)}</span>
+         <span class="pm">${fmtPm(p.pm)}</span>
+       </div>`
+    ).join("");
+  };
+
+  let avgsHtml;
+  if (isMultiOr) {
+    // OR multi-keyword: one pill row per keyword
+    avgsHtml = (data.per_keyword || []).map(kw =>
+      `<div class="avg-kw-block">
+         <div class="avg-kw-label">${escHtml(kw.keyword)}</div>
+         <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
+       </div>`
+    ).join("");
+  } else {
+    // Single keyword or AND mode: one row (labelled for AND)
+    const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
+    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min)}</div>`;
+  }
+  document.getElementById("avgs-container").innerHTML = avgsHtml;
 
   // Set of episode IDs where co-occurrence happened (AND mode only)
   const coOccurIds = isAnd
