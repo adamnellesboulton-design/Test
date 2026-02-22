@@ -959,14 +959,10 @@ function updateSearchPlaceholder() {
   inp.placeholder = hasChips ? "Add another keyword…" : "Add keyword… e.g. million";
 }
 
-function addKwTag(raw) {
-  const kw = raw.trim().replace(/,+$/, "").trim();
-  if (!kw) return;
+function _addSingleTag(kw) {
+  // Adds one pre-validated, single-word chip (no spaces).
   const existing = [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw.toLowerCase());
-  if (existing.includes(kw.toLowerCase())) {
-    document.getElementById("search-input").value = "";
-    return;
-  }
+  if (existing.includes(kw.toLowerCase())) return;
   const chip = document.createElement("span");
   chip.className = "kw-tag";
   chip.dataset.kw = kw;
@@ -977,7 +973,14 @@ function addKwTag(raw) {
   });
   const inp = document.getElementById("search-input");
   document.getElementById("tag-wrap").insertBefore(chip, inp);
-  inp.value = "";
+}
+
+function addKwTag(raw) {
+  // Split on commas OR spaces so "prime minister" becomes two chips.
+  const words = raw.split(/[\s,]+/).map(w => w.trim()).filter(Boolean);
+  if (!words.length) return;
+  words.forEach(_addSingleTag);
+  document.getElementById("search-input").value = "";
   updateSearchPlaceholder();
 }
 
