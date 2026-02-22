@@ -217,9 +217,11 @@ def api_search():
         "mean":              round(fv.mean, 4),
         "std_dev":           round(math.sqrt(fv.variance), 4),
         "model":             (
-            "neg-binomial" if fv.overdispersed and fv.negbin_pmf
+            "zero-inflated"  if fv.zero_inflated  and fv.zinb_pmf
+            else "neg-binomial" if fv.overdispersed and fv.negbin_pmf
             else ("empirical" if fv.lookback_episodes >= 10 else "poisson")
         ),
+        "pi_estimate":       round(fv.pi_estimate, 3) if fv.pi_estimate is not None else None,
         "lookback_episodes": fv.lookback_episodes,
         "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [

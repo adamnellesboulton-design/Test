@@ -972,8 +972,16 @@ function renderResults(data) {
 
   renderTrendChart(eps);
 
-  document.getElementById("fv-model-badge").textContent =
-    { "poisson": "Poisson", "empirical": "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
+  const modelLabel = {
+    "poisson":       "Poisson",
+    "empirical":     "Empirical",
+    "neg-binomial":  "Neg-Binomial",
+    "zero-inflated": "Zero-Inflated NB",
+  }[fv.model] || fv.model;
+  const piSuffix = (fv.model === "zero-inflated" && fv.pi_estimate != null)
+    ? `  π=${(fv.pi_estimate * 100).toFixed(0)}%`
+    : "";
+  document.getElementById("fv-model-badge").textContent = modelLabel + piSuffix;
 
   renderFVChart(fv);
   renderFVGrid(fv);
