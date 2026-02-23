@@ -1261,6 +1261,8 @@ function renderResults(data) {
 
   const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
   const makePills = (a, apm) => {
+    a   = a   || {};
+    apm = apm || {};
     const defs = [
       {cls:"ep1",   n:"Last 1",   v: a.last_1,   pm: apm.last_1},
       {cls:"ep5",   n:"Last 5",   v: a.last_5,   pm: apm.last_5},
@@ -1280,12 +1282,13 @@ function renderResults(data) {
   let avgsHtml;
   if (isMultiOr) {
     // OR multi-keyword: one pill row per keyword
-    avgsHtml = (data.per_keyword || []).map(kw =>
-      `<div class="avg-kw-block">
+    avgsHtml = (data.per_keyword || []).map(kw => {
+      const pills = makePills(kw.averages, kw.averages_per_min);
+      return `<div class="avg-kw-block">
          <div class="avg-kw-label">${escHtml(kw.keyword)}</div>
-         <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
-       </div>`
-    ).join("");
+         <div class="avgs-row">${pills}</div>
+       </div>`;
+    }).join("");
   } else {
     // Single keyword or AND mode: one row (labelled for AND)
     const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
