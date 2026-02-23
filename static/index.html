@@ -434,6 +434,41 @@ header {
 .stat-label { font-size: .75rem; color: var(--muted); margin-top: 4px; }
 
 /* ── Averages row ── */
+/* ── Threshold checker ── */
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.threshold-label { font-size: .88rem; color: var(--muted); }
+.threshold-input {
+  width: 68px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  text-align: center;
+  outline: none;
+  transition: border-color .2s;
+  /* hide browser spin buttons */
+  -moz-appearance: textfield;
+}
+.threshold-input::-webkit-outer-spin-button,
+.threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.threshold-input:focus { border-color: var(--accent2); }
+.threshold-result {
+  font-size: .97rem;
+  font-weight: 700;
+  color: var(--accent2);
+  min-width: 120px;
+}
+.threshold-result .t-frac { color: var(--muted); font-weight: 400; font-size: .85rem; margin-left: 6px; }
+
 #avgs-container { margin-bottom: 20px; }
 .avgs-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .avg-kw-block { margin-bottom: 12px; }
@@ -714,6 +749,15 @@ tbody td { padding: 9px 12px; }
 
       <!-- Averages pills -->
       <div id="avgs-container"></div>
+
+      <!-- Threshold checker -->
+      <div class="threshold-row" id="threshold-row" style="display:none">
+        <span class="threshold-label">Episodes with</span>
+        <span class="threshold-label">≥</span>
+        <input type="number" id="threshold-input" class="threshold-input" min="1" step="1" placeholder="N">
+        <span class="threshold-label">mentions:</span>
+        <span id="threshold-result" class="threshold-result">—</span>
+      </div>
 
       <!-- Charts grid -->
       <div class="charts-grid">
@@ -1296,6 +1340,11 @@ function renderResults(data) {
   }
   document.getElementById("avgs-container").innerHTML = avgsHtml;
 
+  // Threshold checker
+  document.getElementById("threshold-row").style.display = "flex";
+  document.getElementById("threshold-input").value = "";
+  document.getElementById("threshold-result").innerHTML = "—";
+
   // Set of episode IDs where co-occurrence happened (AND mode only)
   const coOccurIds = isAnd
     ? new Set(data.episodes.filter(e => e.count > 0).map(e => e.episode_id))
@@ -1577,6 +1626,23 @@ function fmt(v) {
   if (v === null || v === undefined) return "—";
   return Number(v).toFixed(2);
 }
+
+function updateThreshold() {
+  const input = document.getElementById("threshold-input");
+  const result = document.getElementById("threshold-result");
+  const n = parseInt(input.value, 10);
+  if (!currentData || isNaN(n) || n < 0) { result.innerHTML = "—"; return; }
+  const eps   = currentData.episodes;
+  const total = eps.length;
+  if (total === 0) { result.innerHTML = "—"; return; }
+  const count = eps.filter(e => e.count >= n).length;
+  const pct   = (count / total * 100).toFixed(1);
+  const color = parseFloat(pct) >= 30 ? "var(--accent)" : parseFloat(pct) >= 10 ? "var(--gold)" : "var(--muted)";
+  result.innerHTML =
+    `<span style="color:${color}">${count} / ${total}</span>` +
+    `<span class="t-frac">(${pct}%)</span>`;
+}
+document.getElementById("threshold-input").addEventListener("input", updateThreshold);
 
 function escHtml(str) {
   return String(str)
