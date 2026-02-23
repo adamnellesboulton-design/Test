@@ -28,6 +28,7 @@ body {
   min-height: 100vh;
 }
 
+/* ── Layout ── */
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
 header {
@@ -47,20 +48,84 @@ header {
   flex: 1;
   min-width: 260px;
   gap: 8px;
+  align-items: center;
 }
-.search-bar input {
+/* AND/OR mode toggle — only shown when 2+ keywords are present */
+.mode-toggle {
+  display: none;          /* hidden by default; JS sets display:flex */
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.mode-toggle button {
+  padding: 5px 10px;
+  background: var(--surface);
+  color: var(--muted);
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  line-height: 1;
+}
+.mode-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.mode-toggle button:first-child {
+  border-right: 1px solid var(--border);
+}
+.tag-input-wrap {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 6px 10px;
+  cursor: text;
+  transition: border-color .2s;
+  min-height: 42px;
+}
+.tag-input-wrap:focus-within { border-color: var(--accent2); }
+.tag-input-wrap input {
+  flex: 1;
+  min-width: 110px;
+  background: transparent;
+  border: none;
   color: var(--text);
   font-size: 1rem;
   outline: none;
-  transition: border-color .2s;
+  padding: 3px 4px;
 }
-.search-bar input:focus { border-color: var(--accent2); }
-.search-bar input::placeholder { color: var(--muted); }
+.tag-input-wrap input::placeholder { color: var(--muted); }
+.kw-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent2);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px 2px 9px;
+  font-size: .82rem;
+  white-space: nowrap;
+  user-select: none;
+}
+.kw-tag button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.7);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 1px;
+}
+.kw-tag button:hover { color: #fff; }
 
 .btn {
   padding: 10px 20px;
@@ -73,27 +138,270 @@ header {
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary   { background: var(--accent); color: #fff; }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-.btn-blue { background: var(--accent2); color: #000; }
+.btn-blue      { background: var(--accent2); color: #000; }
+.btn-danger    { background: #3a1a1a; color: var(--accent); border: 1px solid var(--accent); font-size: .8rem; padding: 5px 10px; }
+.btn-sm        { padding: 6px 12px; font-size: .8rem; }
 
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.status-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  display: inline-block;
+.status-text { font-size: .85rem; color: var(--muted); }
+
+/* ── Main ── */
+.main-cols {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  min-height: 0;
 }
-.status-dot.ok    { background: var(--green); }
-.status-dot.busy  { background: var(--gold); animation: pulse 1s infinite; }
-.status-dot.error { background: var(--accent); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-.status-text { font-size: .8rem; color: var(--muted); }
+/* ── Sidebar (episodes) ── */
+.sidebar {
+  width: 320px;
+  min-width: 280px;
+  max-width: 380px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-title {
+  font-size: .85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+}
+.sidebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.episode-count {
+  font-size: .8rem;
+  color: var(--muted);
+  padding: 0 16px 10px;
+}
+.episode-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+.ep-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+}
+.ep-item:hover { background: var(--surface); }
+.ep-item input[type=checkbox] {
+  accent-color: var(--accent2);
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ep-info { flex: 1; min-width: 0; }
+.ep-title {
+  font-size: .83rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ep-meta {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ep-delete {
+  opacity: 0;
+  transition: opacity .15s;
+  flex-shrink: 0;
+}
+.ep-item:hover .ep-delete { opacity: 1; }
 
-main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+.select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: .8rem;
+  color: var(--muted);
+}
+.select-all-row input[type=checkbox] {
+  accent-color: var(--accent2);
+  width: 15px; height: 15px;
+  cursor: pointer;
+}
 
+/* ── Upload panel ── */
+/* ── Help button ── */
+.btn-help {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s, color .15s;
+  line-height: 1;
+}
+.btn-help:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* ── Help modal ── */
+.help-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.help-panel.visible { display: flex; }
+.help-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: 600px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.help-box h2 {
+  font-size: 1.1rem; font-weight: 700;
+  margin-bottom: 20px; color: var(--text);
+}
+.help-box h3 {
+  font-size: .78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin: 18px 0 8px;
+}
+.help-box h3:first-of-type { margin-top: 0; }
+.help-box p  { font-size: .88rem; color: var(--text); line-height: 1.6; margin-bottom: 6px; }
+.help-box ul { list-style: none; padding: 0; margin-bottom: 6px; }
+.help-box ul li {
+  font-size: .88rem; color: var(--text); line-height: 1.6;
+  padding-left: 16px; position: relative;
+}
+.help-box ul li::before { content: "·"; position: absolute; left: 4px; color: var(--muted); }
+.help-kv {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 4px 16px; margin-bottom: 6px;
+}
+.help-kv .k {
+  font-family: monospace; font-size: .82rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 7px;
+  color: var(--accent2); white-space: nowrap; align-self: start;
+}
+.help-kv .v { font-size: .85rem; color: var(--text); line-height: 1.6; align-self: center; }
+.help-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.help-close-row { display: flex; justify-content: flex-end; margin-top: 22px; }
+
+.upload-panel {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.upload-panel.visible { display: flex; }
+.upload-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  width: 520px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.upload-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+  color: var(--text);
+}
+.upload-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  margin-bottom: 16px;
+}
+.upload-drop-zone:hover,
+.upload-drop-zone.drag-over {
+  border-color: var(--accent2);
+  background: rgba(0,180,216,.05);
+}
+.upload-drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-drop-zone p { color: var(--muted); font-size: .9rem; }
+.upload-drop-zone strong { color: var(--accent2); cursor: pointer; }
+#file-input { display: none; }
+
+/* Queued files list */
+.queued-files { margin-bottom: 16px; }
+.queued-file {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.queued-file-name { font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+.field-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.field-row input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: .82rem;
+  outline: none;
+}
+.field-row input:focus { border-color: var(--accent2); }
+.field-row input::placeholder { color: var(--muted); }
+.field-row .date-input { flex: 0 0 130px; }
+
+.upload-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.upload-progress { font-size: .85rem; color: var(--accent2); margin-top: 12px; }
+.upload-result-item { font-size: .8rem; margin-top: 4px; }
+.upload-result-item.ok    { color: var(--green); }
+.upload-result-item.error { color: var(--accent); }
+
+/* ── Content area ── */
+.content { flex: 1; padding: 24px; overflow-y: auto; min-width: 0; }
+
+/* ── Cards ── */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -110,6 +418,7 @@ main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
   margin-bottom: 16px;
 }
 
+/* ── Stats row ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card {
   background: var(--surface);
@@ -124,30 +433,76 @@ main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
 .stat-val.green { color: var(--green); }
 .stat-label { font-size: .75rem; color: var(--muted); margin-top: 4px; }
 
-.avgs-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+/* ── Averages row ── */
+/* ── Threshold checker ── */
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.threshold-label { font-size: .88rem; color: var(--muted); }
+.threshold-input {
+  width: 68px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  text-align: center;
+  outline: none;
+  transition: border-color .2s;
+  /* hide browser spin buttons */
+  -moz-appearance: textfield;
+}
+.threshold-input::-webkit-outer-spin-button,
+.threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.threshold-input:focus { border-color: var(--accent2); }
+.threshold-result {
+  font-size: .97rem;
+  font-weight: 700;
+  color: var(--accent2);
+  min-width: 120px;
+}
+.threshold-result .t-frac { color: var(--muted); font-weight: 400; font-size: .85rem; margin-left: 6px; }
+
+#avgs-container { margin-bottom: 20px; }
+.avgs-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.avg-kw-block { margin-bottom: 12px; }
+.avg-kw-block:last-child { margin-bottom: 0; }
+.avg-kw-label, .avg-row-label {
+  font-size: .73rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted); margin-bottom: 5px;
+}
 .avg-pill {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 6px 14px;
+  border-radius: var(--radius);
+  padding: 8px 14px;
   font-size: .82rem;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 88px;
 }
-.avg-pill .n   { color: var(--muted); }
-.avg-pill .v   { font-weight: 700; }
-.avg-pill .raw { font-size: .72rem; color: var(--muted); margin-left: 4px; }
+.avg-pill .n  { color: var(--muted); font-size: .72rem; }
+.avg-pill .v  { font-weight: 700; font-size: .97rem; }
+.avg-pill .pm { color: var(--muted); font-size: .72rem; }
 .avg-pill.ep1   .v { color: #fff; }
 .avg-pill.ep5   .v { color: var(--accent2); }
 .avg-pill.ep20  .v { color: #90e0ef; }
 .avg-pill.ep50  .v { color: var(--gold); }
 .avg-pill.ep100 .v { color: var(--green); }
 
+/* ── Charts grid ── */
 .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
 @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
 .chart-wrap { position: relative; height: 280px; }
 
+/* ── Table ── */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 thead th {
@@ -184,6 +539,7 @@ tbody td { padding: 9px 12px; }
 .ep-num { color: var(--accent2); font-weight: 600; }
 .per-min { color: var(--muted); font-size: .8rem; }
 
+/* ── Fair value table ── */
 .fv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .fv-cell {
   background: var(--surface);
@@ -201,7 +557,7 @@ tbody td { padding: 9px 12px; }
 .fv-pct.medium { color: var(--gold); }
 .fv-pct.low    { color: var(--muted); }
 .fv-label { font-size: .7rem; color: var(--muted); margin-top: 3px; }
-.fv-model-badge, .fv-ref-badge {
+.fv-model-badge {
   display: inline-block;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -211,42 +567,54 @@ tbody td { padding: 9px 12px; }
   color: var(--accent2);
   margin-bottom: 14px;
 }
-.fv-ref-badge {
-  color: var(--muted);
-  margin-left: 6px;
-}
 
+/* ── Per-minute panel ── */
 #minute-panel { display: none; }
 #minute-panel.visible { display: block; }
+#context-panel { display: none; }
+#context-panel.visible { display: block; }
+.ctx-hit {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+  line-height: 1.55;
+}
+.ctx-hit:last-child { border-bottom: none; }
+.ctx-ts {
+  display: inline-block;
+  min-width: 52px;
+  color: var(--muted);
+  font-size: .78rem;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.ctx-text { color: var(--text-secondary, #ccc); }
+.ctx-match {
+  background: rgba(233,69,96,.25);
+  color: #f87f95;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 600;
+}
 
+/* ── Empty / loading states ── */
 .empty {
   text-align: center;
   padding: 60px 20px;
   color: var(--muted);
 }
 .empty .icon { font-size: 3rem; margin-bottom: 12px; }
-
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.7);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent2);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  margin: 0 auto 12px;
 }
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 28px 32px;
-  width: 420px;
-  max-width: 95vw;
-}
-.modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
-.modal p { color: var(--muted); font-size: .9rem; margin-bottom: 20px; line-height: 1.6; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Lookback selector ── */
 .lookback-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .lookback-row label { font-size: .82rem; color: var(--muted); }
 .lookback-row select {
@@ -260,6 +628,7 @@ tbody td { padding: 9px 12px; }
   cursor: pointer;
 }
 
+/* ── Toast ── */
 .toast {
   position: fixed;
   bottom: 24px; right: 24px;
@@ -272,599 +641,743 @@ tbody td { padding: 9px 12px; }
   transform: translateY(80px);
   opacity: 0;
   transition: all .3s;
-  max-width: 340px;
+  max-width: 320px;
 }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.error   { border-color: var(--accent); color: var(--accent); }
 
-#landing { display: none; }
-#landing.visible { display: block; }
+/* ── Results visibility ── */
+#no-data-msg { display: none; }
+#no-data-msg.visible { display: block; }
 #results { display: none; }
 #results.visible { display: block; }
 
-.demo-note {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent2);
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  font-size: .82rem;
-  color: var(--muted);
-  margin-bottom: 20px;
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .main-cols { flex-direction: column; }
+  .sidebar { width: 100%; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; }
 }
-
-.threshold-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.threshold-label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
-.threshold-input {
-  width: 72px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 5px 8px;
-  font-size: 1rem;
-  font-weight: 700;
-  text-align: center;
-  outline: none;
-  -moz-appearance: textfield;
-}
-.threshold-input::-webkit-outer-spin-button,
-.threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; }
-.threshold-input:focus { border-color: var(--accent2); }
-.threshold-result { font-size: 1rem; font-weight: 700; }
-.threshold-result .pct   { color: var(--accent2); }
-.threshold-result .frac  { font-size: .8rem; color: var(--muted); font-weight: 400; margin-left: 6px; }
-.mode-toggle-wrap {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-.mode-toggle-wrap.visible { display: flex; }
-.mode-toggle { display: flex; gap: 3px; }
-.mode-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: .8rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  transition: all .15s;
-}
-.mode-btn.active { background: var(--accent2); color: #000; border-color: var(--accent2); }
 </style>
 </head>
 <body>
 <div class="app">
 
+<!-- ── Header ── -->
 <header>
   <div class="logo">JRE <span>Keyword Analyzer</span></div>
 
   <div class="search-bar">
-    <input type="text" id="search-input" placeholder="Search keyword… e.g. DMT, aliens, Trump" autocomplete="off"/>
+    <div class="tag-input-wrap" id="tag-wrap">
+      <input type="text" id="search-input" placeholder="Add keyword… e.g. million" autocomplete="off"/>
+    </div>
+    <div class="mode-toggle" id="mode-toggle" title="OR — sum mentions across keywords&#10;AND — only episodes where ALL keywords appear">
+      <button id="mode-or"  class="active" onclick="setMode('or')">OR</button>
+      <button id="mode-and" onclick="setMode('and')">AND</button>
+    </div>
     <button class="btn btn-primary" id="search-btn">Search</button>
+    <button class="btn-help" onclick="openHelp()" title="Search help">?</button>
   </div>
 
   <div class="header-actions">
-    <span class="status-dot" id="status-dot"></span>
-    <span class="status-text" id="status-text">Ready</span>
-    <button class="btn btn-secondary" id="demo-btn">Load Demo</button>
-    <button class="btn btn-blue" id="sync-btn">About Sync</button>
+    <span class="status-text" id="status-text">Loading…</span>
   </div>
 </header>
 
-<main>
+<!-- ── Body ── -->
+<div class="main-cols">
 
-  <div id="landing">
-    <div class="empty">
-      <div class="icon">🎙️</div>
-      <h2 style="margin-bottom:10px">JRE Keyword Analyzer</h2>
-      <p style="color:var(--muted);margin-bottom:8px">
-        Type any keyword and hit <strong style="color:var(--text)">Search</strong> to generate synthetic episode data and see Polymarket-style fair values.
-      </p>
-      <p style="color:var(--muted);margin-bottom:24px;font-size:.85rem">
-        Running in browser-only mode — data is procedurally generated per keyword.
-      </p>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-primary" id="landing-demo-btn">Try "DMT" Demo</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="results">
-
-    <div class="demo-note" id="demo-note">
-      Browser demo mode — episode counts are procedurally generated from the keyword as a seed. Same keyword always gives the same data.
-    </div>
-
-    <div class="stats-row" id="stats-row">
-      <div class="stat-card">
-        <div class="stat-val" id="stat-total">–</div>
-        <div class="stat-label">Total mentions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val blue" id="stat-episodes">–</div>
-        <div class="stat-label">Episodes with data</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val gold" id="stat-avg1">–</div>
-        <div class="stat-label">Avg/min last ep</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val green" id="stat-avg20">–</div>
-        <div class="stat-label">Avg/min last 20 eps</div>
+  <!-- ── Sidebar: Episodes ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Episodes</div>
+      <div class="sidebar-actions">
+        <button class="btn btn-blue btn-sm" id="upload-btn">+ Upload</button>
+        <button class="btn btn-secondary btn-sm" id="search-selected-btn">Search selected</button>
       </div>
     </div>
 
-    <div class="avgs-row" id="avgs-row"></div>
+    <div class="select-all-row">
+      <input type="checkbox" id="select-all-cb" title="Select / deselect all"/>
+      <label for="select-all-cb" style="cursor:pointer">Select all</label>
+      <span id="selected-count" style="margin-left:auto;color:var(--accent2)"></span>
+    </div>
 
-    <div class="threshold-row" id="threshold-row">
-      <span class="threshold-label">Fraction of episodes with ≥</span>
-      <input type="number" id="threshold-input" class="threshold-input" value="1" min="0" step="1"/>
-      <span class="threshold-label">mentions:</span>
-      <span id="threshold-result" class="threshold-result"><span class="pct">–</span></span>
-      <div id="mode-toggle-wrap" class="mode-toggle-wrap">
-        <span class="threshold-label">Mode:</span>
-        <div class="mode-toggle">
-          <button class="mode-btn active" id="mode-or">OR</button>
-          <button class="mode-btn" id="mode-and">AND</button>
+    <div class="episode-count" id="episode-count"></div>
+    <div class="episode-list" id="episode-list">
+      <div class="empty" style="padding:30px 20px">
+        <div class="icon">📂</div>
+        <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Content ── -->
+  <main class="content">
+
+    <!-- No data -->
+    <div id="no-data-msg">
+      <div class="empty">
+        <div class="icon">🔍</div>
+        <h2 style="margin-bottom:10px">Upload transcripts to begin</h2>
+        <p style="color:var(--muted)">Click <strong>+ Upload</strong> in the sidebar to add .txt transcript files,<br>then search for any keyword.</p>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results">
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val" id="stat-total">–</div>
+          <div class="stat-label">Total mentions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val blue" id="stat-episodes">–</div>
+          <div class="stat-label">Episodes searched</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val gold" id="stat-avg1">–</div>
+          <div class="stat-label">Avg last episode</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val green" id="stat-avg20">–</div>
+          <div class="stat-label">Avg last 20 eps</div>
         </div>
       </div>
-    </div>
 
-    <div class="charts-grid">
-      <div class="card">
-        <div class="card-title">Mentions per episode</div>
-        <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+      <!-- Averages pills -->
+      <div id="avgs-container"></div>
+
+      <!-- Threshold checker -->
+      <div class="threshold-row" id="threshold-row" style="display:none">
+        <span class="threshold-label">Episodes with</span>
+        <span class="threshold-label">≥</span>
+        <input type="number" id="threshold-input" class="threshold-input" min="1" step="1" placeholder="N">
+        <span class="threshold-label" id="threshold-mode-label">mentions:</span>
+        <span id="threshold-result" class="threshold-result">—</span>
       </div>
-      <div class="card">
-        <div class="card-title">Polymarket fair value — next episode</div>
-        <div class="lookback-row">
-          <label>Lookback:</label>
-          <select id="lookback-sel">
-            <option value="5">Last 5</option>
-            <option value="10">Last 10</option>
-            <option value="20" selected>Last 20</option>
-            <option value="50">Last 50</option>
-            <option value="100">Last 100</option>
-          </select>
-          <span id="fv-model-badge" class="fv-model-badge"></span>
-          <span id="fv-ref-badge" class="fv-ref-badge" title="Normalized to median episode length of the lookback window"></span>
+
+      <!-- Charts grid -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-title" data-trend-title>Mentions per episode</div>
+          <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
         </div>
-        <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
+        <div class="card">
+          <div class="card-title" data-fv-chart>Polymarket fair value — next episode</div>
+          <div class="lookback-row">
+            <label>Lookback:</label>
+            <select id="lookback-sel">
+              <option value="5">Last 5</option>
+              <option value="10">Last 10</option>
+              <option value="20" selected>Last 20</option>
+              <option value="50">Last 50</option>
+              <option value="100">Last 100</option>
+            </select>
+            <span id="fv-model-badge" class="fv-model-badge"></span>
+          </div>
+          <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
+        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
-      <div class="fv-grid" id="fv-grid"></div>
-    </div>
-
-    <div class="card" id="minute-panel">
-      <div class="card-title" id="minute-title">Per-minute breakdown</div>
-      <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Episode history — click a row for per-minute view</div>
-      <div class="table-wrap">
-        <table id="ep-table">
-          <thead>
-            <tr>
-              <th>Episode</th>
-              <th>Date</th>
-              <th>Mentions</th>
-              <th>Per min</th>
-              <th>Title</th>
-            </tr>
-          </thead>
-          <tbody id="ep-tbody"></tbody>
-        </table>
+      <!-- Fair value grid -->
+      <div class="card">
+        <div class="card-title" data-fv-grid>Fair value — P(≥ N mentions) in next episode</div>
+        <div class="fv-grid" id="fv-grid"></div>
       </div>
+
+      <!-- Per-minute panel -->
+      <div class="card" id="minute-panel">
+        <div class="card-title" id="minute-title">Per-minute breakdown</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
+      </div>
+
+      <!-- Context / KWIC panel -->
+      <div class="card" id="context-panel">
+        <div class="card-title" id="context-title">Transcript mentions</div>
+        <div id="context-hits"></div>
+      </div>
+
+      <!-- Episode table -->
+      <div class="card">
+        <div class="card-title">Episode history — click a row for per-minute breakdown &amp; transcript hits</div>
+        <div class="table-wrap">
+          <table id="ep-table">
+            <thead>
+              <tr>
+                <th>Episode</th>
+                <th>Date</th>
+                <th>Mentions</th>
+                <th>Per min</th>
+                <th>Title</th>
+              </tr>
+            </thead>
+            <tbody id="ep-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /results -->
+  </main>
+</div><!-- /main-cols -->
+</div><!-- /app -->
+
+<!-- ── Help modal ── -->
+<div class="help-panel" id="help-panel" onclick="if(event.target===this)closeHelp()">
+  <div class="help-box">
+    <h2>How search works</h2>
+
+    <h3>Adding keywords</h3>
+    <p>Type a word and press <strong>Enter</strong> or <strong>,</strong> to add it as a chip. Add multiple chips to search across keywords at once. Press <strong>Backspace</strong> to remove the last chip.</p>
+
+    <h3>OR vs AND mode</h3>
+    <div class="help-kv">
+      <span class="k">OR</span><span class="v">Count every episode that mentions <em>any</em> keyword. Total = sum of all keyword occurrences.</span>
+      <span class="k">AND</span><span class="v">Only count episodes where <em>every</em> keyword appears at least once.</span>
     </div>
 
+    <hr class="help-divider">
+
+    <h3>What counts as a match</h3>
+    <div class="help-kv">
+      <span class="k">Exact</span><span class="v">The word itself — <em>drug</em> matches "drug".</span>
+      <span class="k">Plural</span><span class="v"><em>+s</em> or <em>+es</em> — "drugs", "asses" match their base terms. Verb conjugations like "collapses" do <strong>not</strong> count as a plural of "collapse".</span>
+      <span class="k">Compound</span><span class="v">The term used as one component of a compound word. "killjoy" and "badass" count for "joy" and "ass". Derivational forms like "joyful" or "joyfully" do <strong>not</strong> count.</span>
+    </div>
+
+    <h3>Adjacent keywords count once</h3>
+    <p>When two searched keywords appear next to each other in the transcript — e.g. searching <strong>Joe, Biden</strong> and the transcript says "Joe Biden" — that adjacent pair counts as <strong>one</strong> mention, not two. Non-adjacent occurrences each count separately.</p>
+
+    <h3>What's excluded</h3>
+    <ul>
+      <li>The standard intro ("Train by day, Joe Rogan podcast by night…") and all text before it are ignored.</li>
+      <li>Words embedded inside unrelated longer words are filtered out — e.g. "parliament" does not count for "amen", "embarrassing" does not count for "ass".</li>
+      <li>Number words (thirteen – nineteen) do not count for "teen".</li>
+    </ul>
+
+    <h3>Phrases</h3>
+    <p>Type a multi-word phrase as a single chip (e.g. <em>prime minister</em>) to search for that exact sequence of words.</p>
+
+    <div class="help-close-row">
+      <button class="btn btn-secondary" onclick="closeHelp()">Close</button>
+    </div>
   </div>
-</main>
 </div>
 
-<!-- Sync info modal -->
-<div class="modal-overlay" id="sync-modal">
-  <div class="modal">
-    <h2>YouTube Sync</h2>
-    <p>
-      Live YouTube sync requires the local Flask server (<code>python server.py</code>).
-      It fetches real JRE transcripts from the PowerfulJRE channel and stores them in a local SQLite database.
-    </p>
-    <p>
-      This GitHub Pages version runs entirely in your browser using procedurally generated data.
-      Type any keyword in the search bar and hit <strong>Search</strong> — the same keyword always produces the same synthetic episode history.
-    </p>
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="sync-close">Got it</button>
+<!-- ── Upload panel ── -->
+<div class="upload-panel" id="upload-panel">
+  <div class="upload-box">
+    <div class="upload-title">Upload Transcripts</div>
+
+    <div class="upload-drop-zone" id="drop-zone">
+      <div class="icon">📄</div>
+      <p>Drag &amp; drop .txt files here<br>or <strong id="browse-link">browse</strong></p>
+      <input type="file" id="file-input" accept=".txt" multiple/>
     </div>
+
+    <div class="queued-files" id="queued-files"></div>
+
+    <div class="upload-actions">
+      <button class="btn btn-secondary" id="upload-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="upload-submit-btn" disabled>Upload</button>
+    </div>
+
+    <div id="upload-progress" class="upload-progress" style="display:none"></div>
+    <div id="upload-results"></div>
   </div>
 </div>
 
+<!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Seeded PRNG (mulberry32) ─────────────────────────────────
-function hashSeed(str) {
-  let h = 0x9e3779b9 | 0;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(h ^ str.charCodeAt(i), 0x85ebca6b | 0);
-    h ^= h >>> 13;
-  }
-  return h >>> 0;
-}
+// ────────────────────────────────────────────────────────────
+// State
+// ────────────────────────────────────────────────────────────
+let allEpisodes   = [];   // [{id, title, episode_date, ...}]
+let selectedIds   = new Set();  // episode IDs checked in sidebar
+let currentData   = null;
+let currentKeyword = "";
 
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function() {
-    a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// Colour palette for multi-keyword charts (stacked bars)
+const KW_COLORS = ["#e94560","#a855f7","#f97316","#ec4899","#3b82f6","#14b8a6","#eab308"];
+let trendChart    = null;
+let fvChart       = null;
+let minuteChart   = null;
+let queuedFiles   = [];   // [{file, title, date}]
 
-function gaussRand(rand) {
-  let u = 0, v = 0;
-  while (u === 0) u = rand();
-  while (v === 0) v = rand();
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-}
+// ────────────────────────────────────────────────────────────
+// Boot
+// ────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  loadEpisodes();
 
-// ── Episode generation ───────────────────────────────────────
-function generateEpisodes(keyword, n = 100) {
-  const seed = hashSeed((keyword || 'dmt').toLowerCase().trim());
-  const rand = mulberry32(seed);
+  document.getElementById("search-btn").addEventListener("click", doSearch);
 
-  const episodes = [];
-  for (let i = 0; i < n; i++) {
-    const epNum = 2200 - i;
-    const spike  = rand() < 0.08;
-    let count;
-    if (spike) {
-      count = 8 + Math.floor(rand() * 13);
-    } else {
-      count = Math.max(0, Math.round(3.0 + gaussRand(rand) * Math.sqrt(3.0)));
+  // Tag-chip input: Enter/comma adds a chip; Backspace removes last chip
+  document.getElementById("tag-wrap").addEventListener("click", () =>
+    document.getElementById("search-input").focus()
+  );
+  document.getElementById("search-input").addEventListener("keydown", e => {
+    const inp = e.target;
+    if (e.key === "Enter") {
+      if (inp.value.trim()) { addKwTag(inp.value); }
+      else { doSearch(); }
+    } else if (e.key === ",") {
+      e.preventDefault();
+      addKwTag(inp.value);
+    } else if (e.key === "Backspace" && inp.value === "") {
+      const chips = document.querySelectorAll(".kw-tag");
+      if (chips.length) chips[chips.length - 1].remove();
+      updateSearchPlaceholder();
     }
-    const dur = 120 + Math.floor(rand() * 121);
-    const d = new Date(2025, 0, 15);
-    d.setDate(d.getDate() - i * 7);
-    episodes.push({
-      video_id:         `demo_${String(epNum).padStart(4, '0')}`,
-      title:            `Joe Rogan Experience #${epNum}`,
-      upload_date:      d.toISOString().slice(0, 10),
-      episode_number:   epNum,
-      duration_seconds: dur * 60,
-      count,
-      per_minute:       +(count / dur).toFixed(4),
-    });
-  }
-  return episodes;
-}
-
-// ── Averages ─────────────────────────────────────────────────
-function calcAverages(episodes) {
-  function avg(n) {
-    const s = episodes.slice(0, n);
-    if (!s.length) return null;
-    return s.reduce((a, b) => a + b.count, 0) / s.length;
-  }
-  function avgPm(n) {
-    const s = episodes.slice(0, n).filter(e => e.duration_seconds > 0);
-    if (!s.length) return null;
-    return s.reduce((a, b) => a + b.per_minute, 0) / s.length;
-  }
-  return {
-    last_1:   avg(1),   last_5:   avg(5),   last_20:  avg(20),
-    last_50:  avg(50),  last_100: avg(100),
-    pm_last_1:   avgPm(1),   pm_last_5:   avgPm(5),   pm_last_20:  avgPm(20),
-    pm_last_50:  avgPm(50),  pm_last_100: avgPm(100),
-  };
-}
-
-// ── Fair value (Poisson + Empirical) ────────────────────────
-const MAX_BUCKET = 15;
-
-function poissonPMF(k, lambda) {
-  if (lambda <= 0) return k === 0 ? 1 : 0;
-  let logP = -lambda + k * Math.log(lambda);
-  for (let i = 1; i <= k; i++) logP -= Math.log(i);
-  return Math.exp(logP);
-}
-
-function poissonSF(k, lambda) {
-  let cdf = 0;
-  for (let i = 0; i < k; i++) cdf += poissonPMF(i, lambda);
-  return Math.max(0, Math.min(1, 1 - cdf));
-}
-
-function empiricalSF(counts, k) {
-  if (!counts.length) return k === 0 ? 1 : 0;
-  return counts.filter(c => c >= k).length / counts.length;
-}
-
-function calcFairValue(episodes, lookback = 20) {
-  // Normalize by episode duration: use per-minute rate × median episode length
-  // so episodes of different lengths are compared on equal footing.
-  const recent = episodes.slice(0, lookback).filter(e => e.duration_seconds > 0);
-  const fallback = episodes.slice(0, lookback); // in case no duration data
-
-  let counts, intCounts, refMinutes;
-  if (recent.length) {
-    const durs = recent.map(e => e.duration_seconds).sort((a, b) => a - b);
-    refMinutes = durs[Math.floor(durs.length / 2)] / 60;
-    counts    = recent.map(e => e.per_minute * refMinutes);
-    intCounts = counts.map(c => Math.max(0, Math.round(c)));
-  } else {
-    refMinutes = null;
-    counts    = fallback.map(e => e.count);
-    intCounts = counts.map(c => Math.round(c));
-  }
-
-  const n    = counts.length || 1;
-  const mean = counts.reduce((a, b) => a + b, 0) / n;
-  const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
-  const model = n >= 10 ? 'empirical' : 'poisson';
-
-  const buckets = [];
-  for (let k = 0; k <= MAX_BUCKET; k++) {
-    const sf = model === 'empirical' ? empiricalSF(intCounts, k) : poissonSF(k, mean);
-    buckets.push({
-      n: k, label: k === MAX_BUCKET ? `${k}+` : String(k), sf, pct: +(sf * 100).toFixed(2),
-    });
-  }
-
-  return {
-    lambda:            +mean.toFixed(4),
-    mean:              +mean.toFixed(4),
-    std_dev:           +Math.sqrt(variance).toFixed(4),
-    model,
-    lookback_episodes: n,
-    reference_minutes: refMinutes ? +refMinutes.toFixed(1) : null,
-    buckets,
-  };
-}
-
-// ── Per-minute breakdown ──────────────────────────────────────
-function generateMinutes(episode, keyword) {
-  if (episode.count === 0) return [];
-  const seed = hashSeed((keyword + episode.video_id).toLowerCase());
-  const rand = mulberry32(seed);
-  const durMin = Math.floor(episode.duration_seconds / 60);
-  const mins = [];
-  for (let i = 0; i < episode.count; i++) mins.push(Math.floor(rand() * durMin));
-  const minM = Math.min(...mins), maxM = Math.max(...mins);
-  const map = {};
-  for (const m of mins) map[m] = (map[m] || 0) + 1;
-  const result = [];
-  for (let m = minM; m <= maxM; m++) result.push({ minute: m, count: map[m] || 0 });
-  return result;
-}
-
-// ── State ────────────────────────────────────────────────────
-let currentKeyword  = "";
-let allEpisodes     = null;
-let currentData     = null;
-let trendChart      = null;
-let fvChart         = null;
-let minuteChart     = null;
-let searchMode      = "or";       // "or" | "and"
-let parsedKeywords  = [];         // array of trimmed keyword strings
-let episodesByKw    = {};         // cache: keyword → episode array
-
-// ── Keyword helpers ───────────────────────────────────────────
-function parseKeywords(kw) {
-  return kw.split(",").map(k => k.trim()).filter(Boolean);
-}
-
-// Build allEpisodes by combining per-keyword arrays.
-// OR  → combined count = sum of all keyword counts per episode.
-//        Threshold check: total combined ≥ N.
-// AND → combined count = sum (for chart display), but threshold check
-//        requires EVERY individual keyword count ≥ N.
-function aggregateEpisodes(keywords) {
-  keywords.forEach(kw => {
-    if (!episodesByKw[kw]) episodesByKw[kw] = generateEpisodes(kw, 100);
+  });
+  document.getElementById("search-input").addEventListener("input", updateModeToggleVisibility);
+  document.getElementById("lookback-sel").addEventListener("change", () => {
+    if (currentKeyword) doSearch();
   });
 
-  const base = episodesByKw[keywords[0]];
-  return base.map((ep, i) => {
-    const total = keywords.reduce((sum, kw) => sum + episodesByKw[kw][i].count, 0);
-    const dur   = ep.duration_seconds / 60;
-    return { ...ep, count: total, per_minute: +(total / dur).toFixed(4) };
+  // Sidebar
+  document.getElementById("upload-btn").addEventListener("click", openUpload);
+  document.getElementById("search-selected-btn").addEventListener("click", doSearch);
+  document.getElementById("select-all-cb").addEventListener("change", toggleSelectAll);
+
+  // Upload panel
+  document.getElementById("upload-cancel-btn").addEventListener("click", closeUpload);
+  document.getElementById("upload-submit-btn").addEventListener("click", submitUpload);
+  document.getElementById("browse-link").addEventListener("click", () =>
+    document.getElementById("file-input").click()
+  );
+  document.getElementById("drop-zone").addEventListener("click", e => {
+    if (e.target.id !== "browse-link") document.getElementById("file-input").click();
   });
+  document.getElementById("file-input").addEventListener("change", e =>
+    addFiles(Array.from(e.target.files))
+  );
+
+  // Drag-and-drop
+  const dz = document.getElementById("drop-zone");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("drag-over");
+    addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".txt")));
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// Load episodes from server
+// ────────────────────────────────────────────────────────────
+async function loadEpisodes() {
+  try {
+    const r = await fetch("/api/episodes");
+    allEpisodes = await r.json();
+    // Default: all selected
+    selectedIds = new Set(allEpisodes.map(e => e.id));
+    renderSidebar();
+    updateStatus();
+  } catch {
+    document.getElementById("status-text").textContent = "Server unreachable";
+  }
 }
 
-// ── Threshold filter ──────────────────────────────────────────
-function updateThreshold() {
-  const raw = document.getElementById("threshold-input").value;
-  const thresh = parseInt(raw, 10);
-  const resultEl = document.getElementById("threshold-result");
+function updateStatus() {
+  const total = allEpisodes.length;
+  document.getElementById("status-text").textContent =
+    total === 0 ? "No episodes uploaded" : `${total} episode${total !== 1 ? "s" : ""} in database`;
 
-  if (raw === "" || isNaN(thresh) || thresh < 0 || !allEpisodes) {
-    resultEl.innerHTML = '<span class="pct">–</span>';
+  if (total === 0) {
+    document.getElementById("no-data-msg").classList.add("visible");
+    document.getElementById("results").classList.remove("visible");
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Sidebar
+// ────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById("episode-list");
+  const countEl = document.getElementById("episode-count");
+
+  if (allEpisodes.length === 0) {
+    list.innerHTML = `<div class="empty" style="padding:30px 20px">
+      <div class="icon">📂</div>
+      <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
+    </div>`;
+    countEl.textContent = "";
+    document.getElementById("selected-count").textContent = "";
     return;
   }
 
-  let qualifying;
-  if (parsedKeywords.length > 1 && searchMode === "and") {
-    // AND: every keyword must independently have ≥ thresh mentions
-    qualifying = allEpisodes.filter((_, i) =>
-      parsedKeywords.every(kw => episodesByKw[kw][i].count >= thresh)
-    );
-  } else {
-    // Single keyword OR OR-mode: combined (sum) count ≥ thresh
-    qualifying = allEpisodes.filter(ep => ep.count >= thresh);
-  }
+  countEl.textContent = `${allEpisodes.length} episode${allEpisodes.length !== 1 ? "s" : ""}`;
+  updateSelectedCount();
 
+  list.innerHTML = allEpisodes.map(ep => {
+    const checked = selectedIds.has(ep.id) ? "checked" : "";
+    const num = ep.episode_number ? `#${ep.episode_number} · ` : "";
+    const date = ep.episode_date || ep.uploaded_at?.slice(0, 10) || "";
+    const dur  = ep.duration_seconds > 0 ? ` · ${Math.round(ep.duration_seconds / 60)}m` : "";
+    const title = (ep.title || "").slice(0, 45) + ((ep.title || "").length > 45 ? "…" : "");
+    return `<div class="ep-item" data-id="${ep.id}">
+      <input type="checkbox" ${checked} data-id="${ep.id}" onclick="toggleEpisode(event,${ep.id})"/>
+      <div class="ep-info">
+        <div class="ep-title">${escHtml(title)}</div>
+        <div class="ep-meta">${num}${date}${dur}</div>
+      </div>
+      <button class="btn btn-danger ep-delete" onclick="deleteEpisode(event,${ep.id})" title="Delete">✕</button>
+    </div>`;
+  }).join("");
+
+  // Sync select-all checkbox
+  const allChecked = allEpisodes.every(e => selectedIds.has(e.id));
+  const noneChecked = allEpisodes.every(e => !selectedIds.has(e.id));
+  const cb = document.getElementById("select-all-cb");
+  cb.checked = allChecked;
+  cb.indeterminate = !allChecked && !noneChecked;
+}
+
+function toggleEpisode(event, id) {
+  event.stopPropagation();
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+  } else {
+    selectedIds.add(id);
+  }
+  updateSelectedCount();
+  // Sync select-all checkbox
+  const allChecked = allEpisodes.every(e => selectedIds.has(e.id));
+  const noneChecked = allEpisodes.every(e => !selectedIds.has(e.id));
+  const cb = document.getElementById("select-all-cb");
+  cb.checked = allChecked;
+  cb.indeterminate = !allChecked && !noneChecked;
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById("select-all-cb");
+  if (cb.checked) {
+    selectedIds = new Set(allEpisodes.map(e => e.id));
+  } else {
+    selectedIds = new Set();
+  }
+  renderSidebar();
+}
+
+function updateSelectedCount() {
+  const n = selectedIds.size;
   const total = allEpisodes.length;
-  const n     = qualifying.length;
-  const pct   = total > 0 ? (n / total * 100).toFixed(1) : "0.0";
-  resultEl.innerHTML =
-    `<span class="pct">${pct}%</span><span class="frac">${n} / ${total} episodes</span>`;
+  document.getElementById("selected-count").textContent =
+    n === total ? "" : `${n} selected`;
 }
 
-// ── Mode toggle ───────────────────────────────────────────────
-function setMode(mode) {
-  searchMode = mode;
-  document.getElementById("mode-or").classList.toggle("active", mode === "or");
-  document.getElementById("mode-and").classList.toggle("active", mode === "and");
-  // Re-aggregate and re-render with new mode (chart display uses sum either way,
-  // but stats / FV windows are recalculated)
-  if (parsedKeywords.length > 1 && allEpisodes) {
-    allEpisodes = aggregateEpisodes(parsedKeywords);
-    const lookback = parseInt(document.getElementById("lookback-sel").value);
-    const averages  = calcAverages(allEpisodes);
-    const fv        = calcFairValue(allEpisodes, lookback);
-    currentData     = { keyword: currentKeyword, episodes: allEpisodes, averages, fair_value: fv };
-    renderResults(currentData);
+async function deleteEpisode(event, id) {
+  event.stopPropagation();
+  if (!confirm("Delete this episode and all its data?")) return;
+  try {
+    const r = await fetch(`/api/episode/${id}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Delete failed");
+    allEpisodes = allEpisodes.filter(e => e.id !== id);
+    selectedIds.delete(id);
+    renderSidebar();
+    updateStatus();
+    toast("Episode deleted", "success");
+  } catch (e) {
+    toast(e.message, "error");
   }
-  updateThreshold();
 }
 
-// ── Boot ─────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("landing").classList.add("visible");
-
-  document.getElementById("search-btn").addEventListener("click", doSearch);
-  document.getElementById("search-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") doSearch();
-  });
-
-  document.getElementById("demo-btn").addEventListener("click", loadDemo);
-  document.getElementById("landing-demo-btn").addEventListener("click", loadDemo);
-
-  document.getElementById("sync-btn").addEventListener("click", () =>
-    document.getElementById("sync-modal").classList.add("open")
-  );
-  document.getElementById("sync-close").addEventListener("click", () =>
-    document.getElementById("sync-modal").classList.remove("open")
-  );
-
-  document.getElementById("lookback-sel").addEventListener("change", () => {
-    if (currentKeyword && allEpisodes) updateFV();
-  });
-
-  document.getElementById("threshold-input").addEventListener("input", updateThreshold);
-
-  document.getElementById("mode-or").addEventListener("click",  () => setMode("or"));
-  document.getElementById("mode-and").addEventListener("click", () => setMode("and"));
-});
-
-// ── Demo ─────────────────────────────────────────────────────
-function loadDemo() {
-  document.getElementById("search-input").value = "dmt";
-  doSearch();
+// ────────────────────────────────────────────────────────────
+// Upload panel
+// ────────────────────────────────────────────────────────────
+function openUpload() {
+  queuedFiles = [];
+  document.getElementById("queued-files").innerHTML = "";
+  document.getElementById("upload-submit-btn").disabled = true;
+  document.getElementById("file-input").value = "";
+  document.getElementById("upload-progress").style.display = "none";
+  document.getElementById("upload-results").innerHTML = "";
+  document.getElementById("upload-panel").classList.add("visible");
 }
 
-// ── Search ───────────────────────────────────────────────────
-function doSearch() {
-  const kw = document.getElementById("search-input").value.trim();
-  if (!kw) { toast("Enter a keyword first", "error"); return; }
+function closeUpload() {
+  document.getElementById("upload-panel").classList.remove("visible");
+}
 
+function openHelp()  { document.getElementById("help-panel").classList.add("visible"); }
+function closeHelp() { document.getElementById("help-panel").classList.remove("visible"); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeHelp(); });
+
+function addFiles(files) {
+  files.forEach(f => {
+    if (!f.name.endsWith(".txt")) return;
+    queuedFiles.push({ file: f, title: "" });
+  });
+  renderQueuedFiles();
+  document.getElementById("upload-submit-btn").disabled = queuedFiles.length === 0;
+}
+
+function renderQueuedFiles() {
+  const container = document.getElementById("queued-files");
+  if (queuedFiles.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = queuedFiles.map((item, i) => `
+    <div class="queued-file" data-index="${i}">
+      <div class="queued-file-name">📄 ${escHtml(item.file.name)}</div>
+      <div class="field-row">
+        <input type="text"
+               placeholder="Episode title (optional)"
+               value="${escHtml(item.title)}"
+               oninput="queuedFiles[${i}].title=this.value"/>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function submitUpload() {
+  if (queuedFiles.length === 0) return;
+
+  const btn = document.getElementById("upload-submit-btn");
+  const prog = document.getElementById("upload-progress");
+  const resultsEl = document.getElementById("upload-results");
+
+  btn.disabled = true;
+  prog.style.display = "block";
+  prog.textContent = `Uploading ${queuedFiles.length} file(s)…`;
+  resultsEl.innerHTML = "";
+
+  const fd = new FormData();
+  queuedFiles.forEach(item => {
+    fd.append("files[]", item.file, item.file.name);
+    fd.append("title[]", item.title || item.file.name.replace(/\.txt$/i, ""));
+  });
+
+  try {
+    const r = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await r.json();
+
+    let html = "";
+    (data.created || []).forEach(ep => {
+      html += `<div class="upload-result-item ok">✓ ${escHtml(ep.title)} — ${ep.segment_count} segments</div>`;
+    });
+    (data.errors || []).forEach(err => {
+      html += `<div class="upload-result-item error">✗ ${escHtml(err.filename)}: ${escHtml(err.error)}</div>`;
+    });
+    resultsEl.innerHTML = html;
+
+    prog.textContent = `Done. ${(data.created||[]).length} uploaded, ${(data.errors||[]).length} errors.`;
+
+    if ((data.created || []).length > 0) {
+      await loadEpisodes();
+      toast(`${data.created.length} episode(s) uploaded`, "success");
+    }
+
+    queuedFiles = [];
+    btn.disabled = true;
+  } catch (e) {
+    prog.textContent = "Upload failed: " + e.message;
+    toast("Upload failed", "error");
+    btn.disabled = false;
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// ── Tag-chip keyword helpers ──────────────────────────────────────────────────
+
+// ── AND / OR mode toggle ──────────────────────────────────────────────────────
+let searchMode = "or";   // "or" | "and"
+
+function setMode(m) {
+  searchMode = m;
+  document.getElementById("mode-or").classList.toggle("active",  m === "or");
+  document.getElementById("mode-and").classList.toggle("active", m === "and");
+}
+
+function updateModeToggleVisibility() {
+  const chips = document.querySelectorAll(".kw-tag").length;
+  const cur   = document.getElementById("search-input").value.trim();
+  // Show when ≥2 keywords are present (chips + possibly one in the input box)
+  const total = chips + (cur ? 1 : 0);
+  document.getElementById("mode-toggle").style.display = total >= 2 ? "flex" : "none";
+}
+
+function updateSearchPlaceholder() {
+  const inp = document.getElementById("search-input");
+  const hasChips = document.querySelectorAll(".kw-tag").length > 0;
+  inp.placeholder = hasChips ? "Add another keyword…" : "Add keyword… e.g. million";
+  updateModeToggleVisibility();
+}
+
+function addKwTag(raw) {
+  // Split only on commas — spaces are kept so phrases like "prime minister" stay intact.
+  const terms = raw.split(/,+/).map(t => t.trim()).filter(Boolean);
+  if (!terms.length) return;
+  const existing = () => [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw.toLowerCase());
+  const inp = document.getElementById("search-input");
+  const wrap = document.getElementById("tag-wrap");
+  terms.forEach(kw => {
+    if (existing().includes(kw.toLowerCase())) return;
+    const chip = document.createElement("span");
+    chip.className = "kw-tag";
+    chip.dataset.kw = kw;
+    chip.innerHTML = `${escHtml(kw)} <button aria-label="remove">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      chip.remove();
+      updateSearchPlaceholder();
+    });
+    wrap.insertBefore(chip, inp);
+  });
+  inp.value = "";
+  updateSearchPlaceholder();
+}
+
+function getKeywords() {
+  const chips = [...document.querySelectorAll(".kw-tag")].map(el => el.dataset.kw);
+  const cur = document.getElementById("search-input").value.trim().replace(/,+$/, "").trim();
+  if (cur) chips.push(cur);
+  return chips.filter(Boolean);
+}
+
+// Search
+// ────────────────────────────────────────────────────────────
+async function doSearch() {
+  const keywords = getKeywords();
+  if (!keywords.length) { toast("Enter at least one keyword", "error"); return; }
+  if (allEpisodes.length === 0) { toast("Upload transcripts first", "error"); return; }
+
+  const kw = keywords.join(", ");
+  const lookback = document.getElementById("lookback-sel").value;
   currentKeyword = kw;
-  parsedKeywords = parseKeywords(kw);
 
-  // Generate (or retrieve from cache) episodes for each keyword
-  parsedKeywords.forEach(pk => {
-    if (!episodesByKw[pk]) episodesByKw[pk] = generateEpisodes(pk, 100);
-  });
+  // Determine episode filter
+  const allSelected = selectedIds.size === allEpisodes.length;
+  const episodeIdsParam = allSelected
+    ? ""
+    : Array.from(selectedIds).join(",");
 
-  // Combined episode array (sum of counts per episode for chart/stats)
-  allEpisodes = aggregateEpisodes(parsedKeywords);
+  if (selectedIds.size === 0) { toast("Select at least one episode", "error"); return; }
 
-  // Show OR/AND toggle only when there are multiple keywords
-  const modeWrap = document.getElementById("mode-toggle-wrap");
-  if (parsedKeywords.length > 1) {
-    modeWrap.classList.add("visible");
-  } else {
-    modeWrap.classList.remove("visible");
+  const btn = document.getElementById("search-btn");
+  btn.disabled = true;
+  btn.textContent = "Searching…";
+
+  try {
+    const multi = keywords.length > 1;
+    const mode  = multi ? searchMode : "or";
+    let url = `/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}&mode=${mode}`;
+    if (episodeIdsParam) url += `&episode_ids=${episodeIdsParam}`;
+
+    const r = await fetch(url);
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
+    const data = await r.json();
+    currentData = data;
+    renderResults(data);
+    document.getElementById("results").classList.add("visible");
+    document.getElementById("no-data-msg").classList.remove("visible");
+  } catch (e) {
+    toast(e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Search";
   }
-
-  const lookback = parseInt(document.getElementById("lookback-sel").value);
-  const averages  = calcAverages(allEpisodes);
-  const fv        = calcFairValue(allEpisodes, lookback);
-
-  currentData = { keyword: kw, episodes: allEpisodes, averages, fair_value: fv };
-
-  renderResults(currentData);
-  updateThreshold();
-
-  document.getElementById("status-dot").className  = "status-dot ok";
-  document.getElementById("status-text").textContent =
-    `100 episodes  |  keyword: "${kw}"`;
-
-  document.getElementById("results").classList.add("visible");
-  document.getElementById("landing").classList.remove("visible");
 }
 
-// ── Update FV only (lookback change) ─────────────────────────
-function updateFV() {
-  const lookback = parseInt(document.getElementById("lookback-sel").value);
-  const fv = calcFairValue(allEpisodes, lookback);
-  currentData.fair_value = fv;
-  document.getElementById("fv-model-badge").textContent =
-    { poisson: "Poisson", empirical: "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
-  const refElU = document.getElementById("fv-ref-badge");
-  if (refElU) refElU.textContent = fv.reference_minutes ? `ref ${fv.reference_minutes}min` : "";
-  renderFVChart(fv);
-  renderFVGrid(fv);
-  updateThreshold();
-}
-
-// ── Render all ───────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Render
+// ────────────────────────────────────────────────────────────
 function renderResults(data) {
-  const { episodes: eps, averages: avgs, fair_value: fv } = data;
+  const eps  = data.episodes;
+  const avgs = data.averages;
+  const fv   = data.fair_value;
 
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
-  // Prefer per-minute values for the normalized view; fall back to raw counts
-  const pm = avgs.pm_last_1   != null ? avgs : null;
-  const fmtPm = v => v == null ? "–" : v.toFixed(3) + "/min";
+  document.getElementById("stat-avg1").textContent     = fmt(avgs.last_1);
+  document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
 
-  document.getElementById("stat-avg1").textContent  = fmtPm(avgs.pm_last_1);
-  document.getElementById("stat-avg20").textContent = fmtPm(avgs.pm_last_20);
+  // Average pills
+  const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
+  const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
 
-  const pillDefs = [
-    { cls: "ep1",   n: "Last 1",   pm: avgs.pm_last_1,   raw: avgs.last_1   },
-    { cls: "ep5",   n: "Last 5",   pm: avgs.pm_last_5,   raw: avgs.last_5   },
-    { cls: "ep20",  n: "Last 20",  pm: avgs.pm_last_20,  raw: avgs.last_20  },
-    { cls: "ep50",  n: "Last 50",  pm: avgs.pm_last_50,  raw: avgs.last_50  },
-    { cls: "ep100", n: "Last 100", pm: avgs.pm_last_100, raw: avgs.last_100 },
-  ];
-  document.getElementById("avgs-row").innerHTML = pillDefs.map(p =>
-    `<div class="avg-pill ${p.cls}">
-       <span class="n">${p.n}:</span>
-       <span class="v">${fmtPm(p.pm)}</span>
-       <span class="raw">(${fmt(p.raw)} raw)</span>
-     </div>`
-  ).join("");
+  const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
+  const makePills = (a, apm) => {
+    a   = a   || {};
+    apm = apm || {};
+    const defs = [
+      {cls:"ep1",   n:"Last 1",   v: a.last_1,   pm: apm.last_1},
+      {cls:"ep5",   n:"Last 5",   v: a.last_5,   pm: apm.last_5},
+      {cls:"ep20",  n:"Last 20",  v: a.last_20,  pm: apm.last_20},
+      {cls:"ep50",  n:"Last 50",  v: a.last_50,  pm: apm.last_50},
+      {cls:"ep100", n:"Last 100", v: a.last_100, pm: apm.last_100},
+    ];
+    return defs.map(p =>
+      `<div class="avg-pill ${p.cls}">
+         <span class="n">${p.n}</span>
+         <span class="v">${fmt(p.v)}</span>
+         <span class="pm">${fmtPm(p.pm)}</span>
+       </div>`
+    ).join("");
+  };
 
-  renderTrendChart(eps, avgs);
+  let avgsHtml;
+  if (isMultiOr) {
+    // OR multi-keyword: one pill row per keyword
+    avgsHtml = (data.per_keyword || []).map(kw => {
+      const pills = makePills(kw.averages, kw.averages_per_min);
+      return `<div class="avg-kw-block">
+         <div class="avg-kw-label">${escHtml(kw.keyword)}</div>
+         <div class="avgs-row">${pills}</div>
+       </div>`;
+    }).join("");
+  } else {
+    // Single keyword or AND mode: one row (labelled for AND)
+    const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
+    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min)}</div>`;
+  }
+  document.getElementById("avgs-container").innerHTML = avgsHtml;
 
-  document.getElementById("fv-model-badge").textContent =
-    { poisson: "Poisson", empirical: "Empirical", "neg-binomial": "Neg-Binomial" }[fv.model] || fv.model;
-  const refEl = document.getElementById("fv-ref-badge");
-  refEl.textContent = fv.reference_minutes ? `ref ${fv.reference_minutes}min` : "";
-  renderFVChart(fv);
+  // Threshold checker
+  document.getElementById("threshold-row").style.display = "flex";
+  document.getElementById("threshold-input").value = "";
+  document.getElementById("threshold-result").innerHTML = "—";
+  document.getElementById("threshold-mode-label").textContent =
+    isAnd     ? "mentions each (all keywords):"
+    : isMultiOr ? "mentions (any keyword):"
+    : "mentions:";
+
+  // Set of episode IDs where co-occurrence happened (AND mode only)
+  const coOccurIds = isAnd
+    ? new Set(data.episodes.filter(e => e.count > 0).map(e => e.episode_id))
+    : null;
+
+  renderTrendChart(eps, data.per_keyword, isAnd, coOccurIds);
+
+  const modelLabel = {
+    "poisson":       "Poisson",
+    "empirical":     "Empirical",
+    "neg-binomial":  "Neg-Binomial",
+    "zero-inflated": "Zero-Inflated NB",
+  }[fv.model] || fv.model;
+  const piSuffix = (fv.model === "zero-inflated" && fv.pi_estimate != null)
+    ? `  π=${(fv.pi_estimate * 100).toFixed(0)}%`
+    : "";
+  document.getElementById("fv-model-badge").textContent = modelLabel + piSuffix;
+
+  // Update all card titles to reflect AND co-occurrence mode
+  document.querySelector(".card-title[data-trend-title]").textContent =
+    isAnd ? "Co-occurrence mentions per episode" : "Mentions per episode";
+  document.querySelector(".card-title[data-fv-chart]").textContent =
+    isAnd ? "Polymarket fair value — co-occurrence next episode" : "Polymarket fair value — next episode";
+  document.querySelector(".card-title[data-fv-grid]").textContent =
+    isAnd ? "Fair value — P(both words in ≥ N mentions) next episode" : "Fair value — P(≥ N mentions) in next episode";
+
+  // In AND mode show the single merged FV bar (co-occurrence FV);
+  // in OR mode show per-keyword grouped bars.
+  renderFVChart(fv, isAnd ? null : data.per_keyword_fv);
   renderFVGrid(fv);
   renderTable(eps);
 
@@ -872,134 +1385,117 @@ function renderResults(data) {
   if (minuteChart) { minuteChart.destroy(); minuteChart = null; }
 }
 
-// ── Trend chart ───────────────────────────────────────────────
-function renderTrendChart(episodes, avgs) {
+// ── Trend chart ──────────────────────────────────────────────
+function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   const ctx = document.getElementById("trend-chart").getContext("2d");
   if (trendChart) trendChart.destroy();
 
   const eps    = [...episodes].reverse();
-  const labels = eps.map(e => `#${e.episode_number}`);
-  const counts = eps.map(e => e.count);
+  const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
+  const stacked = perKeyword && perKeyword.length > 1;
 
-  const avgLines = [
-    { label: "Last 1",   value: avgs.last_1,   color: "#ffffff" },
-    { label: "Last 5",   value: avgs.last_5,   color: "#00b4d8" },
-    { label: "Last 20",  value: avgs.last_20,  color: "#90e0ef" },
-    { label: "Last 50",  value: avgs.last_50,  color: "#ffd166" },
-    { label: "Last 100", value: avgs.last_100, color: "#06d6a0" },
-  ].filter(a => a.value !== null && a.value !== undefined);
+
+  let barDatasets;
+  if (stacked) {
+    barDatasets = perKeyword.map((kw, i) => {
+      const col = KW_COLORS[i % KW_COLORS.length];
+      const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
+      // In AND mode zero out episodes where co-occurrence didn't happen
+      const counts = eps.map(e =>
+        (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0)
+      );
+      return { label: kw.keyword, data: counts, backgroundColor: col + "cc", borderColor: col,
+               borderWidth: 1, borderRadius: 3, type: "bar", order: 2, stack: "kw" };
+    });
+  } else {
+    const counts = eps.map(e => e.count);
+    const col = KW_COLORS[0];
+    const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
+    barDatasets = [{
+      label, data: counts,
+      backgroundColor: counts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
+      borderColor:     counts.map(c => c > 0 ? col       : "#2a2a4a"),
+      borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
+    }];
+  }
+
+  const datasets = [...barDatasets];
 
   trendChart = new Chart(ctx, {
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Mentions",
-          data: counts,
-          backgroundColor: counts.map(c => c > 0 ? "#e94560cc" : "#2a2a4a"),
-          borderColor:     counts.map(c => c > 0 ? "#e94560"   : "#2a2a4a"),
-          borderWidth: 1,
-          borderRadius: 3,
-          type: "bar",
-          order: 2,
-        },
-        ...avgLines.map(a => ({
-          label:       `${a.label} avg: ${a.value.toFixed(2)}`,
-          data:        Array(eps.length).fill(a.value),
-          borderColor: a.color,
-          borderWidth: 1.5,
-          borderDash:  [4, 4],
-          pointRadius: 0,
-          type:        "line",
-          order:       1,
-        })),
-      ],
-    },
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: {
-          labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 },
-          position: "top",
-        },
-        tooltip: {
-          callbacks: {
-            title: items => {
-              const ep = eps[items[0].dataIndex];
-              return ep.title ? ep.title.slice(0, 50) : labels[items[0].dataIndex];
-            }
-          }
-        }
+        legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        tooltip: { callbacks: { title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; } } }
       },
       scales: {
-        x: {
-          ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 },
-          grid:  { color: "#22223a" },
-        },
-        y: {
-          ticks:       { color: "#888" },
-          grid:        { color: "#22223a" },
-          beginAtZero: true,
-        }
+        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
+        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
       }
     }
   });
 }
 
-// ── FV chart ──────────────────────────────────────────────────
-function renderFVChart(fv) {
+// ── Fair-value chart ─────────────────────────────────────────
+function renderFVChart(fv, pkFv) {
   const ctx = document.getElementById("fv-chart").getContext("2d");
   if (fvChart) fvChart.destroy();
 
-  const labels = fv.buckets.map(b => b.label);
-  const pcts   = fv.buckets.map(b => b.pct);
-  const colors = fv.buckets.map(b => b.n === 0 ? "#0f3460" : "#e94560cc");
+  const labels   = fv.buckets.map(b => b.label);
+  const multiKw  = pkFv && pkFv.length > 1;
+
+  // AND mode (pkFv===null): single merged co-occurrence bar in a distinct teal colour.
+  // OR multi-kw mode: one grouped bar per keyword.
+  // Single keyword: single bar.
+  const isAndMode = pkFv === null;
+  const AND_COLOR = "#06d6a0";
+
+  const datasets = multiKw
+    ? pkFv.map((kw, i) => {
+        const col = KW_COLORS[i % KW_COLORS.length];
+        return {
+          label: kw.keyword,
+          data: kw.buckets.map(b => b.pct),
+          backgroundColor: col + "cc",
+          borderColor: col,
+          borderWidth: 1, borderRadius: 3,
+        };
+      })
+    : [{
+        label: isAndMode ? "co-occurrence" : (pkFv && pkFv.length === 1 ? pkFv[0].keyword : "P(≥ N) %"),
+        data: fv.buckets.map(b => b.pct),
+        backgroundColor: (isAndMode ? AND_COLOR : KW_COLORS[0]) + "cc",
+        borderColor: isAndMode ? AND_COLOR : KW_COLORS[0],
+        borderWidth: 1, borderRadius: 4,
+      }];
 
   fvChart = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "P(≥ N) %",
-        data:  pcts,
-        backgroundColor: colors,
-        borderColor:     colors.map(c => c.replace("cc", "")),
-        borderWidth: 1,
-        borderRadius: 4,
-      }]
-    },
+    data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 300 },
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: item => `P(≥${item.label}) = ${item.raw.toFixed(1)}%`
-          }
-        }
+        legend: { display: multiKw || isAndMode, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
         x: { ticks: { color: "#888" }, grid: { color: "#22223a" } },
-        y: {
-          ticks:       { color: "#888", callback: v => v + "%" },
-          grid:        { color: "#22223a" },
-          beginAtZero: true,
-          max: 100,
-        }
+        y: { ticks: { color: "#888", callback: v => v + "%" }, grid: { color: "#22223a" }, beginAtZero: true, max: 100 }
       }
     }
   });
 }
 
-// ── FV grid ───────────────────────────────────────────────────
+// ── FV grid ──────────────────────────────────────────────────
 function renderFVGrid(fv) {
   document.getElementById("fv-grid").innerHTML = fv.buckets.map(b => {
-    const cls = b.pct >= 30 ? "high" : b.pct >= 10 ? "medium" : "low";
+    const pct = b.pct;
+    const cls = pct >= 30 ? "high" : pct >= 10 ? "medium" : "low";
     return `<div class="fv-cell">
       <div class="fv-n">≥ ${b.label} mention${b.n !== 1 ? "s" : ""}</div>
-      <div class="fv-pct ${cls}">${b.pct.toFixed(1)}%</div>
+      <div class="fv-pct ${cls}">${pct.toFixed(1)}%</div>
       <div class="fv-label">P(mentions ≥ ${b.label})</div>
     </div>`;
   }).join("");
@@ -1009,17 +1505,18 @@ function renderFVGrid(fv) {
 function renderTable(episodes) {
   const tbody = document.getElementById("ep-tbody");
   tbody.innerHTML = episodes.map(ep => {
+    const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
     const badge = ep.count > 0
       ? `<span class="count-badge">${ep.count}</span>`
       : `<span class="count-badge zero">0</span>`;
-    const pm = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
+    const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
     const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
-    return `<tr data-vid="${ep.video_id}">
-      <td class="ep-num">#${ep.episode_number}</td>
-      <td>${ep.upload_date}</td>
+    return `<tr data-eid="${ep.episode_id}">
+      <td class="ep-num">${num}</td>
+      <td>${ep.episode_date || "—"}</td>
       <td>${badge}</td>
       <td>${pm}</td>
-      <td>${title}</td>
+      <td>${escHtml(title)}</td>
     </tr>`;
   }).join("");
 
@@ -1027,90 +1524,160 @@ function renderTable(episodes) {
     row.addEventListener("click", () => {
       tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected"));
       row.classList.add("selected");
-      loadMinutes(row.dataset.vid);
+      loadMinutes(parseInt(row.dataset.eid));
     });
   });
 }
 
 // ── Per-minute breakdown ──────────────────────────────────────
-function loadMinutes(videoId) {
-  if (!currentKeyword || !allEpisodes) return;
-  const ep = allEpisodes.find(e => e.video_id === videoId);
-  if (!ep) return;
+async function loadMinutes(episodeId) {
+  if (!currentKeyword) return;
+  loadContext(episodeId);
+  try {
+    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
+    const d = await r.json();
 
-  const minutes = generateMinutes(ep, currentKeyword);
-  const panel   = document.getElementById("minute-panel");
-  panel.classList.add("visible");
-  document.getElementById("minute-title").textContent =
-    `Per-minute — ${ep.title.slice(0, 60)}`;
+    const panel = document.getElementById("minute-panel");
+    panel.classList.add("visible");
+    document.getElementById("minute-title").textContent =
+      `Per-minute — ${(d.title || String(episodeId)).slice(0, 60)}`;
 
-  const ctx = document.getElementById("minute-chart").getContext("2d");
-  if (minuteChart) minuteChart.destroy();
+    const ctx = document.getElementById("minute-chart").getContext("2d");
+    if (minuteChart) minuteChart.destroy();
 
-  if (!minutes.length) {
-    panel.querySelector("canvas").style.display = "none";
-    document.getElementById("minute-title").textContent += "  (no mentions)";
-    return;
-  }
-  panel.querySelector("canvas").style.display = "";
+    if (!d.minutes || d.minutes.length === 0) {
+      panel.querySelector("canvas").style.display = "none";
+      document.getElementById("minute-title").textContent += "  (no mentions)";
+      return;
+    }
+    panel.querySelector("canvas").style.display = "";
 
-  const labels = minutes.map(m => `${m.minute}m`);
-  const counts = minutes.map(m => m.count);
-  const mean   = counts.reduce((a, b) => a + b, 0) / counts.length;
+    const labels  = d.minutes.map(m => `${m.minute}m`);
+    const counts  = d.minutes.map(m => m.count);
+    const mean    = counts.reduce((a, b) => a + b, 0) / counts.length;
+    const pk      = d.per_keyword;
+    const stacked = pk && pk.length > 1;
 
-  minuteChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Mentions",
-          data:  counts,
-          backgroundColor: "#e94560cc",
-          borderColor:     "#e94560",
-          borderWidth: 1,
-          borderRadius: 3,
-          order: 2,
-        },
-        {
-          label:       `Avg ${mean.toFixed(2)}/min`,
-          data:        Array(counts.length).fill(mean),
-          type:        "line",
-          borderColor: "#ffd166",
-          borderWidth: 1.5,
-          borderDash:  [4, 4],
-          pointRadius: 0,
-          order: 1,
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 200 },
-      plugins: {
-        legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } }
-      },
-      scales: {
-        x: {
-          ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 },
-          grid:  { color: "#22223a" },
-        },
-        y: {
-          ticks:       { color: "#888" },
-          grid:        { color: "#22223a" },
-          beginAtZero: true,
+    let barDatasets;
+    if (stacked) {
+      barDatasets = pk.map((kw, i) => {
+        const col  = KW_COLORS[i % KW_COLORS.length];
+        const data = d.minutes.map(m => kw.minutes[m.minute] ?? 0);
+        return { label: kw.keyword, data, backgroundColor: col + "cc", borderColor: col,
+                 borderWidth: 1, borderRadius: 3, order: 2, stack: "kw" };
+      });
+    } else {
+      const col   = KW_COLORS[0];
+      const label = pk && pk.length === 1 ? pk[0].keyword : "Mentions";
+      barDatasets = [{ label, data: counts, backgroundColor: col + "cc", borderColor: col,
+                       borderWidth: 1, borderRadius: 3, order: 2 }];
+    }
+
+    minuteChart = new Chart(ctx, {
+      type: "bar",
+      data: { labels, datasets: [
+        ...barDatasets,
+        { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
+          type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+        plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
+        scales: {
+          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" }, stacked },
+          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
         }
       }
-    }
-  });
+    });
 
-  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    toast("Could not load per-minute data", "error");
+  }
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Transcript context (KWIC) ─────────────────────────────────
+async function loadContext(episodeId) {
+  const panel = document.getElementById("context-panel");
+  const hitsEl = document.getElementById("context-hits");
+  const titleEl = document.getElementById("context-title");
+  panel.classList.remove("visible");
+  hitsEl.innerHTML = "";
+  try {
+    const r = await fetch(`/api/context?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
+    const d = await r.json();
+    if (!d.hits || d.hits.length === 0) return;
+
+    titleEl.textContent = `Transcript mentions (${d.hits.length})`;
+    hitsEl.innerHTML = d.hits.map(h => {
+      const mm = String(h.minute).padStart(2, "0");
+      const ss = String(h.second).padStart(2, "0");
+      return `<div class="ctx-hit">
+        <span class="ctx-ts">${mm}:${ss}</span>
+        <span class="ctx-text">${escHtml(h.prefix)}<span class="ctx-match">${escHtml(h.match)}</span>${escHtml(h.suffix)}</span>
+      </div>`;
+    }).join("");
+    panel.classList.add("visible");
+  } catch (e) {
+    // silently skip if context unavailable
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────
 function fmt(v) {
-  if (v === null || v === undefined) return "–";
+  if (v === null || v === undefined) return "—";
   return Number(v).toFixed(2);
+}
+
+function updateThreshold() {
+  const input = document.getElementById("threshold-input");
+  const result = document.getElementById("threshold-result");
+  const n = parseInt(input.value, 10);
+  if (!currentData || isNaN(n) || n < 1) { result.innerHTML = "—"; return; }
+
+  const eps   = currentData.episodes;
+  const total = eps.length;
+  if (total === 0) { result.innerHTML = "—"; return; }
+
+  const pk    = currentData.per_keyword || [];
+  const isAnd = currentData.mode === "and" && pk.length > 1;
+
+  let count;
+  if (pk.length > 1) {
+    // Build per-keyword episode-count maps from the raw individual results
+    const kwMaps = pk.map(kw => {
+      const m = new Map();
+      for (const e of (kw.episodes || [])) m.set(e.episode_id, e.count);
+      return m;
+    });
+    if (isAnd) {
+      // AND: every keyword must individually have >= N mentions
+      count = eps.filter(e => kwMaps.every(m => (m.get(e.episode_id) ?? 0) >= n)).length;
+    } else {
+      // OR: at least one keyword has >= N mentions
+      count = eps.filter(e => kwMaps.some(m => (m.get(e.episode_id) ?? 0) >= n)).length;
+    }
+  } else {
+    // Single keyword — use the merged count directly
+    count = eps.filter(e => e.count >= n).length;
+  }
+
+  const pct   = (count / total * 100).toFixed(1);
+  const color = parseFloat(pct) >= 30 ? "var(--accent)" : parseFloat(pct) >= 10 ? "var(--gold)" : "var(--muted)";
+  result.innerHTML =
+    `<span style="color:${color}">${count} / ${total}</span>` +
+    `<span class="t-frac">(${pct}%)</span>`;
+}
+document.getElementById("threshold-input").addEventListener("input", updateThreshold);
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function toast(msg, type) {
