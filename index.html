@@ -293,58 +293,6 @@ tbody td { padding: 9px 12px; }
   color: var(--muted);
   margin-bottom: 20px;
 }
-
-.threshold-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.threshold-label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
-.threshold-input {
-  width: 72px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  padding: 5px 8px;
-  font-size: 1rem;
-  font-weight: 700;
-  text-align: center;
-  outline: none;
-  -moz-appearance: textfield;
-}
-.threshold-input::-webkit-outer-spin-button,
-.threshold-input::-webkit-inner-spin-button { -webkit-appearance: none; }
-.threshold-input:focus { border-color: var(--accent2); }
-.threshold-result { font-size: 1rem; font-weight: 700; }
-.threshold-result .pct   { color: var(--accent2); }
-.threshold-result .frac  { font-size: .8rem; color: var(--muted); font-weight: 400; margin-left: 6px; }
-.mode-toggle-wrap {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-.mode-toggle-wrap.visible { display: flex; }
-.mode-toggle { display: flex; gap: 3px; }
-.mode-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: .8rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  transition: all .15s;
-}
-.mode-btn.active { background: var(--accent2); color: #000; border-color: var(--accent2); }
 </style>
 </head>
 <body>
@@ -410,20 +358,6 @@ tbody td { padding: 9px 12px; }
     </div>
 
     <div class="avgs-row" id="avgs-row"></div>
-
-    <div class="threshold-row" id="threshold-row">
-      <span class="threshold-label">Fraction of episodes with ≥</span>
-      <input type="number" id="threshold-input" class="threshold-input" value="1" min="0" step="1"/>
-      <span class="threshold-label">mentions:</span>
-      <span id="threshold-result" class="threshold-result"><span class="pct">–</span></span>
-      <div id="mode-toggle-wrap" class="mode-toggle-wrap">
-        <span class="threshold-label">Mode:</span>
-        <div class="mode-toggle">
-          <button class="mode-btn active" id="mode-or">OR</button>
-          <button class="mode-btn" id="mode-and">AND</button>
-        </div>
-      </div>
-    </div>
 
     <div class="charts-grid">
       <div class="card">
@@ -659,85 +593,12 @@ function generateMinutes(episode, keyword) {
 }
 
 // ── State ────────────────────────────────────────────────────
-let currentKeyword  = "";
-let allEpisodes     = null;
-let currentData     = null;
-let trendChart      = null;
-let fvChart         = null;
-let minuteChart     = null;
-let searchMode      = "or";       // "or" | "and"
-let parsedKeywords  = [];         // array of trimmed keyword strings
-let episodesByKw    = {};         // cache: keyword → episode array
-
-// ── Keyword helpers ───────────────────────────────────────────
-function parseKeywords(kw) {
-  return kw.split(",").map(k => k.trim()).filter(Boolean);
-}
-
-// Build allEpisodes by combining per-keyword arrays.
-// OR  → combined count = sum of all keyword counts per episode.
-//        Threshold check: total combined ≥ N.
-// AND → combined count = sum (for chart display), but threshold check
-//        requires EVERY individual keyword count ≥ N.
-function aggregateEpisodes(keywords) {
-  keywords.forEach(kw => {
-    if (!episodesByKw[kw]) episodesByKw[kw] = generateEpisodes(kw, 100);
-  });
-
-  const base = episodesByKw[keywords[0]];
-  return base.map((ep, i) => {
-    const total = keywords.reduce((sum, kw) => sum + episodesByKw[kw][i].count, 0);
-    const dur   = ep.duration_seconds / 60;
-    return { ...ep, count: total, per_minute: +(total / dur).toFixed(4) };
-  });
-}
-
-// ── Threshold filter ──────────────────────────────────────────
-function updateThreshold() {
-  const raw = document.getElementById("threshold-input").value;
-  const thresh = parseInt(raw, 10);
-  const resultEl = document.getElementById("threshold-result");
-
-  if (raw === "" || isNaN(thresh) || thresh < 0 || !allEpisodes) {
-    resultEl.innerHTML = '<span class="pct">–</span>';
-    return;
-  }
-
-  let qualifying;
-  if (parsedKeywords.length > 1 && searchMode === "and") {
-    // AND: every keyword must independently have ≥ thresh mentions
-    qualifying = allEpisodes.filter((_, i) =>
-      parsedKeywords.every(kw => episodesByKw[kw][i].count >= thresh)
-    );
-  } else {
-    // Single keyword OR OR-mode: combined (sum) count ≥ thresh
-    qualifying = allEpisodes.filter(ep => ep.count >= thresh);
-  }
-
-  const total = allEpisodes.length;
-  const n     = qualifying.length;
-  const pct   = total > 0 ? (n / total * 100).toFixed(1) : "0.0";
-  resultEl.innerHTML =
-    `<span class="pct">${pct}%</span><span class="frac">${n} / ${total} episodes</span>`;
-}
-
-// ── Mode toggle ───────────────────────────────────────────────
-function setMode(mode) {
-  searchMode = mode;
-  document.getElementById("mode-or").classList.toggle("active", mode === "or");
-  document.getElementById("mode-and").classList.toggle("active", mode === "and");
-  // Re-aggregate and re-render with new mode (chart display uses sum either way,
-  // but stats / FV windows are recalculated)
-  if (parsedKeywords.length > 1 && allEpisodes) {
-    allEpisodes = aggregateEpisodes(parsedKeywords);
-    const lookback = parseInt(document.getElementById("lookback-sel").value);
-    const averages  = calcAverages(allEpisodes);
-    const fv        = calcFairValue(allEpisodes, lookback);
-    currentData     = { keyword: currentKeyword, episodes: allEpisodes, averages, fair_value: fv };
-    renderResults(currentData);
-  }
-  updateThreshold();
-}
+let currentKeyword = "";
+let allEpisodes    = null;
+let currentData    = null;
+let trendChart     = null;
+let fvChart        = null;
+let minuteChart    = null;
 
 // ── Boot ─────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -761,11 +622,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("lookback-sel").addEventListener("change", () => {
     if (currentKeyword && allEpisodes) updateFV();
   });
-
-  document.getElementById("threshold-input").addEventListener("input", updateThreshold);
-
-  document.getElementById("mode-or").addEventListener("click",  () => setMode("or"));
-  document.getElementById("mode-and").addEventListener("click", () => setMode("and"));
 });
 
 // ── Demo ─────────────────────────────────────────────────────
@@ -779,23 +635,9 @@ function doSearch() {
   const kw = document.getElementById("search-input").value.trim();
   if (!kw) { toast("Enter a keyword first", "error"); return; }
 
-  currentKeyword = kw;
-  parsedKeywords = parseKeywords(kw);
-
-  // Generate (or retrieve from cache) episodes for each keyword
-  parsedKeywords.forEach(pk => {
-    if (!episodesByKw[pk]) episodesByKw[pk] = generateEpisodes(pk, 100);
-  });
-
-  // Combined episode array (sum of counts per episode for chart/stats)
-  allEpisodes = aggregateEpisodes(parsedKeywords);
-
-  // Show OR/AND toggle only when there are multiple keywords
-  const modeWrap = document.getElementById("mode-toggle-wrap");
-  if (parsedKeywords.length > 1) {
-    modeWrap.classList.add("visible");
-  } else {
-    modeWrap.classList.remove("visible");
+  if (kw !== currentKeyword || !allEpisodes) {
+    allEpisodes    = generateEpisodes(kw, 100);
+    currentKeyword = kw;
   }
 
   const lookback = parseInt(document.getElementById("lookback-sel").value);
@@ -805,7 +647,6 @@ function doSearch() {
   currentData = { keyword: kw, episodes: allEpisodes, averages, fair_value: fv };
 
   renderResults(currentData);
-  updateThreshold();
 
   document.getElementById("status-dot").className  = "status-dot ok";
   document.getElementById("status-text").textContent =
@@ -826,7 +667,6 @@ function updateFV() {
   if (refElU) refElU.textContent = fv.reference_minutes ? `ref ${fv.reference_minutes}min` : "";
   renderFVChart(fv);
   renderFVGrid(fv);
-  updateThreshold();
 }
 
 // ── Render all ───────────────────────────────────────────────
