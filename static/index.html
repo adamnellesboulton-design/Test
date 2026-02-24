@@ -1345,8 +1345,8 @@ function renderResults(data) {
   document.getElementById("threshold-input").value = "";
   document.getElementById("threshold-result").innerHTML = "—";
   document.getElementById("threshold-mode-label").textContent =
-    isAnd     ? "mentions each (all keywords):"
-    : isMultiOr ? "mentions (any keyword):"
+    isAnd     ? "combined co-occurrence mentions:"
+    : isMultiOr ? "combined mentions:"
     : "mentions:";
 
   // Set of episode IDs where co-occurrence happened (AND mode only)
@@ -1641,28 +1641,11 @@ function updateThreshold() {
   const total = eps.length;
   if (total === 0) { result.innerHTML = "—"; return; }
 
-  const pk    = currentData.per_keyword || [];
-  const isAnd = currentData.mode === "and" && pk.length > 1;
-
-  let count;
-  if (pk.length > 1) {
-    // Build per-keyword episode-count maps from the raw individual results
-    const kwMaps = pk.map(kw => {
-      const m = new Map();
-      for (const e of (kw.episodes || [])) m.set(e.episode_id, e.count);
-      return m;
-    });
-    if (isAnd) {
-      // AND: every keyword must individually have >= N mentions
-      count = eps.filter(e => kwMaps.every(m => (m.get(e.episode_id) ?? 0) >= n)).length;
-    } else {
-      // OR: at least one keyword has >= N mentions
-      count = eps.filter(e => kwMaps.some(m => (m.get(e.episode_id) ?? 0) >= n)).length;
-    }
-  } else {
-    // Single keyword — use the merged count directly
-    count = eps.filter(e => e.count >= n).length;
-  }
+  // Use the merged episode count directly — this is the same value shown in the table.
+  // OR mode:  e.count = total combined mentions (adjacency-deduped across all keywords).
+  // AND mode: e.count = total combined mentions in co-occurring episodes; 0 for others,
+  //           so episodes where any keyword was absent are naturally excluded.
+  const count = eps.filter(e => e.count >= n).length;
 
   const pct   = (count / total * 100).toFixed(1);
   const color = parseFloat(pct) >= 30 ? "var(--accent)" : parseFloat(pct) >= 10 ? "var(--gold)" : "var(--muted)";
