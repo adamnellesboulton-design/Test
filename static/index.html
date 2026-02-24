@@ -1400,8 +1400,11 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
 
   const eps    = [...episodes].reverse();
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
-  const stacked = perKeyword && perKeyword.length > 1;
-
+  // Stack bars per-keyword only in AND mode.
+  // In OR mode the per-keyword individual counts sum to MORE than the
+  // deduped merged count (adjacent "donald trump" = 2 keywords but 1 mention),
+  // so stacking would overstate the true count shown in the table.
+  const stacked = perKeyword && perKeyword.length > 1 && isAnd;
 
   let barDatasets;
   if (stacked) {
@@ -1542,7 +1545,8 @@ async function loadMinutes(episodeId) {
   if (!currentKeyword) return;
   loadContext(episodeId);
   try {
-    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
+    const mode = (currentData && currentData.mode) || "or";
+    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}&mode=${mode}`);
     const d = await r.json();
 
     const panel = document.getElementById("minute-panel");
@@ -1564,7 +1568,10 @@ async function loadMinutes(episodeId) {
     const counts  = d.minutes.map(m => m.count);
     const mean    = counts.reduce((a, b) => a + b, 0) / counts.length;
     const pk      = d.per_keyword;
-    const stacked = pk && pk.length > 1;
+    // Only stack in AND mode (same reason as trend chart: OR adjacent-dedup means
+    // per-keyword sum ≠ deduped total).
+    const isAndMode = currentData && currentData.mode === "and";
+    const stacked = pk && pk.length > 1 && isAndMode;
 
     let barDatasets;
     if (stacked) {

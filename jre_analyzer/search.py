@@ -506,6 +506,32 @@ def get_minute_breakdown(
     ]
 
 
+def get_minute_breakdown_multi_adjacent(
+    db: Database,
+    terms: list[str],
+    episode_id: int,
+) -> dict[int, int]:
+    """
+    Per-minute mention counts for a multi-keyword OR search with adjacent
+    deduplication.  Contiguous tokens matching any of `terms` count as ONE
+    mention per run, consistent with search_multi_adjacent.
+    """
+    segments = db.get_transcript(episode_id)
+    minute_counts: dict[int, int] = {}
+    for seg in segments:
+        minute = int(seg.get("start", 0) // 60)
+        in_run = False
+        tokens = re.findall(r"[a-z]+", seg.get("text", "").lower())
+        for token in tokens:
+            if any(is_valid_match(token, t) for t in terms):
+                if not in_run:
+                    minute_counts[minute] = minute_counts.get(minute, 0) + 1
+                    in_run = True
+            else:
+                in_run = False
+    return minute_counts
+
+
 # ── Phrase search (multi-word) ────────────────────────────────────────────────
 
 def _phrase_pattern(phrase: str) -> re.Pattern:
