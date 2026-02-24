@@ -23,7 +23,7 @@ from jre_analyzer.analyzer import index_episode, index_all
 from jre_analyzer.search import (
     search, get_minute_breakdown, merge_results, intersect_results,
     phrase_search, get_phrase_minute_breakdown, get_context,
-    search_multi_adjacent,
+    search_multi_adjacent, get_minute_breakdown_multi_adjacent,
 )
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
 from jre_analyzer.fetch_transcripts import parse_transcript_txt, extract_episode_date
@@ -325,6 +325,7 @@ def api_minutes():
     except ValueError:
         return jsonify({"error": "episode_id must be an integer"}), 400
 
+    mode  = request.args.get("mode", "or").strip().lower()
     terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
     individual_results = [
         phrase_search(db, t, episode_ids=[eid]) if " " in t
@@ -334,9 +335,8 @@ def api_minutes():
     result = merge_results(keyword, individual_results)
     ep     = result.episode_by_id(eid)
 
-    # Per-keyword and merged per-minute breakdowns
+    # Per-keyword per-minute breakdowns (always simple sum — used for per-kw bars)
     per_keyword_minutes: list[dict] = []
-    merged_counts: dict[int, int] = {}
     for t in terms:
         breakdown = (
             get_phrase_minute_breakdown(db, t, eid) if " " in t
@@ -345,8 +345,17 @@ def api_minutes():
         kw_map: dict[int, int] = {}
         for mr in breakdown:
             kw_map[mr.minute] = kw_map.get(mr.minute, 0) + mr.count
-            merged_counts[mr.minute] = merged_counts.get(mr.minute, 0) + mr.count
         per_keyword_minutes.append({"keyword": t, "minutes": kw_map})
+
+    # Merged per-minute counts: use adjacent-dedup for multi-word OR queries
+    # so the minute-chart bars match the main episode count.
+    if len(terms) > 1 and all(" " not in t for t in terms) and mode != "and":
+        merged_counts: dict[int, int] = get_minute_breakdown_multi_adjacent(db, terms, eid)
+    else:
+        merged_counts = {}
+        for kw_entry in per_keyword_minutes:
+            for minute, cnt in kw_entry["minutes"].items():
+                merged_counts[minute] = merged_counts.get(minute, 0) + cnt
 
     if not merged_counts:
         return jsonify({"episode_id": eid, "keyword": keyword, "minutes": [], "per_keyword": per_keyword_minutes})
