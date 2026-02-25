@@ -48,6 +48,8 @@ _FALSE_COMPOUNDS: frozenset[tuple[str, str]] = frozenset([
     ("fundamental",   "fun"), ("fundamentals",  "fun"),
     ("fundamentally", "fun"), ("fundamentalist", "fun"),
     ("fundamentalists", "fun"), ("fundamentalism", "fun"),
+    ("function", "fun"), ("functions", "fun"),
+    ("funded", "fun"), ("funding", "fun"),
 ])
 
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
@@ -103,6 +105,8 @@ def is_valid_match(word: str, term: str) -> bool:
         "fun"          → True  (exact)
         "funhouse"     → True  (compound)
         "fundamental"  → False (false-compound blocklist)
+        "function"     → False (false-compound blocklist)
+        "funded"       → False (false-compound blocklist)
 
     Examples (term = "amen"):
         "amen"       → True  (exact)

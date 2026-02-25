@@ -1405,6 +1405,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
   const mergedCounts = eps.map(e => e.count);
   const isMultiKeyword = perKeyword && perKeyword.length > 1;
+  // Stack all multi-keyword histograms so component totals are visible
+  // directly inside one bar per episode.
+  const stacked = !!isMultiKeyword;
   // Stack only in AND mode. In OR mode, show grouped component bars and
   // a deduped merged line so the final combined count remains visible.
   const stacked = !!(isMultiKeyword && isAnd);
@@ -1426,6 +1429,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         borderRadius: 3,
         type: "bar",
         order: 2,
+        stack: "kw",
         stack: stacked ? "kw" : undefined,
       };
     });
@@ -1634,6 +1638,7 @@ async function loadMinutes(episodeId) {
           borderWidth: 1,
           borderRadius: 3,
           order: 2,
+          stack: "kw",
           stack: stacked ? "kw" : undefined,
         };
       });
