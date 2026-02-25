@@ -3,27 +3,31 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>JRE Keyword Analyzer</title>
+<title>Aero Transcript Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root {
-  --bg:       #0d0d1a;
-  --surface:  #16213e;
-  --card:     #1a1a2e;
-  --border:   #2a2a4a;
-  --accent:   #e94560;
-  --accent2:  #00b4d8;
-  --gold:     #ffd166;
-  --green:    #06d6a0;
-  --text:     #e8e8f0;
-  --muted:    #888899;
-  --radius:   10px;
+  --bg:       #050b16;
+  --surface:  #122338;
+  --card:     #0f1d33;
+  --border:   #2f4f73;
+  --accent:   #4fd6ff;
+  --accent2:  #7cf8d6;
+  --gold:     #9ce7ff;
+  --green:    #57ffd5;
+  --text:     #e7f7ff;
+  --muted:    #8faec3;
+  --radius:   12px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 800px at 8% -10%, rgba(79,214,255,.22), transparent 55%),
+    radial-gradient(900px 640px at 92% -8%, rgba(124,248,214,.16), transparent 52%),
+    radial-gradient(1100px 760px at 50% 115%, rgba(120,170,255,.18), transparent 60%),
+    linear-gradient(165deg, #050b16 0%, #081628 45%, #050d1d 100%);
   color: var(--text);
   min-height: 100vh;
 }
@@ -32,15 +36,17 @@ body {
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
 header {
-  background: var(--card);
+  background: linear-gradient(180deg, rgba(24,49,78,.72), rgba(11,27,47,.78));
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 12px 28px rgba(0,0,0,.25), inset 0 1px 0 rgba(170,235,255,.12);
+  backdrop-filter: blur(8px);
   padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 }
-.logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.logo { font-size: 1.3rem; font-weight: 700; color: var(--accent); white-space: nowrap; text-shadow: 0 0 14px rgba(79,214,255,.45); }
 .logo span { color: var(--text); }
 
 .search-bar {
@@ -138,9 +144,9 @@ header {
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-primary   { background: var(--accent); color: #fff; }
-.btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-.btn-blue      { background: var(--accent2); color: #000; }
+.btn-primary   { background: linear-gradient(135deg, #3fc5f2, #4fd6ff 48%, #7cf8d6); color: #02242d; box-shadow: 0 8px 18px rgba(79,214,255,.28); }
+.btn-secondary { background: linear-gradient(180deg, rgba(25,52,82,.85), rgba(14,31,52,.88)); color: var(--text); border: 1px solid var(--border); }
+.btn-blue      { background: linear-gradient(135deg, #7cf8d6, #45d8ff); color: #04323d; box-shadow: 0 8px 18px rgba(83,227,255,.22); }
 .btn-danger    { background: #3a1a1a; color: var(--accent); border: 1px solid var(--accent); font-size: .8rem; padding: 5px 10px; }
 .btn-sm        { padding: 6px 12px; font-size: .8rem; }
 
@@ -161,7 +167,7 @@ header {
   width: 320px;
   min-width: 280px;
   max-width: 380px;
-  background: var(--card);
+  background: linear-gradient(180deg, rgba(15,33,56,.9), rgba(10,25,44,.9));
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -399,15 +405,23 @@ header {
 .upload-result-item.error { color: var(--accent); }
 
 /* ── Content area ── */
-.content { flex: 1; padding: 24px; overflow-y: auto; min-width: 0; }
+.content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  min-width: 0;
+  background: radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.08), transparent 56%);
+}
 
 /* ── Cards ── */
 .card {
-  background: var(--card);
+  background: linear-gradient(180deg, rgba(20,40,64,.82), rgba(11,25,42,.86));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
+  box-shadow: 0 12px 24px rgba(0,0,0,.22), inset 0 1px 0 rgba(167,234,255,.1);
+  backdrop-filter: blur(6px);
 }
 .card-title {
   font-size: .85rem;
@@ -421,7 +435,7 @@ header {
 /* ── Stats row ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card {
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(24,53,84,.76), rgba(12,30,50,.82));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -665,7 +679,7 @@ tbody td { padding: 9px 12px; }
 
 <!-- ── Header ── -->
 <header>
-  <div class="logo">JRE <span>Keyword Analyzer</span></div>
+  <div class="logo">Aero <span>Transcript Analyzer</span></div>
 
   <div class="search-bar">
     <div class="tag-input-wrap" id="tag-wrap">
@@ -852,7 +866,7 @@ tbody td { padding: 9px 12px; }
 
     <h3>What's excluded</h3>
     <ul>
-      <li>The standard intro ("Train by day, Joe Rogan podcast by night…") and all text before it are ignored.</li>
+      <li>The standard intro marker line and all text before it are ignored.</li>
       <li>Words embedded inside unrelated longer words are filtered out — e.g. "parliament" does not count for "amen", "embarrassing" does not count for "ass".</li>
       <li>Number words (thirteen – nineteen) do not count for "teen".</li>
     </ul>
@@ -1389,46 +1403,90 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
 
   const eps    = [...episodes].reverse();
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
-  // Stack bars per-keyword only in AND mode.
-  // In OR mode the per-keyword individual counts sum to MORE than the
-  // deduped merged count (adjacent "donald trump" = 2 keywords but 1 mention),
-  // so stacking would overstate the true count shown in the table.
-  const stacked = perKeyword && perKeyword.length > 1 && isAnd;
+  const mergedCounts = eps.map(e => e.count);
+  const isMultiKeyword = perKeyword && perKeyword.length > 1;
+  // Stack only in AND mode. In OR mode, show grouped component bars and
+  // a deduped merged line so the final combined count remains visible.
+  const stacked = !!(isMultiKeyword && isAnd);
 
   let barDatasets;
-  if (stacked) {
+  if (isMultiKeyword) {
     barDatasets = perKeyword.map((kw, i) => {
       const col = KW_COLORS[i % KW_COLORS.length];
       const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
-      // In AND mode zero out episodes where co-occurrence didn't happen
       const counts = eps.map(e =>
         (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0)
       );
-      return { label: kw.keyword, data: counts, backgroundColor: col + "cc", borderColor: col,
-               borderWidth: 1, borderRadius: 3, type: "bar", order: 2, stack: "kw" };
+      return {
+        label: kw.keyword,
+        data: counts,
+        backgroundColor: col + "cc",
+        borderColor: col,
+        borderWidth: 1,
+        borderRadius: 3,
+        type: "bar",
+        order: 2,
+        stack: stacked ? "kw" : undefined,
+      };
     });
   } else {
-    const counts = eps.map(e => e.count);
     const col = KW_COLORS[0];
     const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
     barDatasets = [{
-      label, data: counts,
-      backgroundColor: counts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
-      borderColor:     counts.map(c => c > 0 ? col       : "#2a2a4a"),
+      label, data: mergedCounts,
+      backgroundColor: mergedCounts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
+      borderColor:     mergedCounts.map(c => c > 0 ? col       : "#2a2a4a"),
       borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
     }];
   }
 
-  const datasets = [...barDatasets];
+  const rolling20 = mergedCounts.map((_, i) => {
+    const start = Math.max(0, i - 19);
+    const window = mergedCounts.slice(start, i + 1);
+    return window.reduce((a, b) => a + b, 0) / window.length;
+  });
+
+  const lineDatasets = [
+    {
+      label: "Rolling avg (20 eps)",
+      data: rolling20,
+      type: "line",
+      borderColor: "#ffd166",
+      backgroundColor: "#ffd166",
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.25,
+      order: 0,
+    }
+  ];
+
+  if (isMultiKeyword && !isAnd) {
+    lineDatasets.push({
+      label: "Combined (deduped)",
+      data: mergedCounts,
+      type: "line",
+      borderColor: "#ffffff",
+      backgroundColor: "#ffffff",
+      borderWidth: 1.8,
+      pointRadius: 0,
+      tension: 0.2,
+      order: 1,
+    });
+  }
 
   trendChart = new Chart(ctx, {
-    data: { labels, datasets },
+    data: { labels, datasets: [...barDatasets, ...lineDatasets] },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
         legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
-        tooltip: { callbacks: { title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; } } }
+        tooltip: {
+          callbacks: {
+            title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
+            label: item => `${item.dataset.label}: ${Number(item.raw).toFixed(2)}`,
+          }
+        }
       },
       scales: {
         x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
@@ -1557,18 +1615,27 @@ async function loadMinutes(episodeId) {
     const counts  = d.minutes.map(m => m.count);
     const mean    = counts.reduce((a, b) => a + b, 0) / counts.length;
     const pk      = d.per_keyword;
-    // Only stack in AND mode (same reason as trend chart: OR adjacent-dedup means
-    // per-keyword sum ≠ deduped total).
     const isAndMode = currentData && currentData.mode === "and";
-    const stacked = pk && pk.length > 1 && isAndMode;
+    const isMultiKeyword = pk && pk.length > 1;
+    // AND mode can stack cleanly. OR mode is adjacency-deduped, so we show
+    // color-separated component bars plus a deduped total line.
+    const stacked = !!(isMultiKeyword && isAndMode);
 
     let barDatasets;
-    if (stacked) {
+    if (isMultiKeyword) {
       barDatasets = pk.map((kw, i) => {
         const col  = KW_COLORS[i % KW_COLORS.length];
         const data = d.minutes.map(m => kw.minutes[m.minute] ?? 0);
-        return { label: kw.keyword, data, backgroundColor: col + "cc", borderColor: col,
-                 borderWidth: 1, borderRadius: 3, order: 2, stack: "kw" };
+        return {
+          label: kw.keyword,
+          data,
+          backgroundColor: col + "cc",
+          borderColor: col,
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 2,
+          stack: stacked ? "kw" : undefined,
+        };
       });
     } else {
       const col   = KW_COLORS[0];
@@ -1577,12 +1644,30 @@ async function loadMinutes(episodeId) {
                        borderWidth: 1, borderRadius: 3, order: 2 }];
     }
 
+    const lineDatasets = [
+      { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
+        type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+    ];
+
+    if (isMultiKeyword && !isAndMode) {
+      lineDatasets.push({
+        label: "Combined (deduped)",
+        data: counts,
+        type: "line",
+        borderColor: "#ffffff",
+        backgroundColor: "#ffffff",
+        borderWidth: 1.8,
+        pointRadius: 0,
+        tension: 0.2,
+        order: 0,
+      });
+    }
+
     minuteChart = new Chart(ctx, {
       type: "bar",
       data: { labels, datasets: [
         ...barDatasets,
-        { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
-          type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+        ...lineDatasets,
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
