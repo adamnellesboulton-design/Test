@@ -43,6 +43,13 @@ _FALSE_COMPOUNDS: frozenset[tuple[str, str]] = frozenset([
     ("thirteen",  "teen"), ("fourteen",  "teen"), ("fifteen",  "teen"),
     ("sixteen",   "teen"), ("seventeen", "teen"), ("eighteen", "teen"),
     ("nineteen",  "teen"),
+
+    # "fun" should not match the Latin-root family "fundamental*".
+    ("fundamental",   "fun"), ("fundamentals",  "fun"),
+    ("fundamentally", "fun"), ("fundamentalist", "fun"),
+    ("fundamentalists", "fun"), ("fundamentalism", "fun"),
+    ("function", "fun"), ("functions", "fun"),
+    ("funded", "fun"), ("funding", "fun"),
 ])
 
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
@@ -93,6 +100,13 @@ def is_valid_match(word: str, term: str) -> bool:
         "declassify"   → False (term embedded mid-word with derivational suffix)
         "assign"       → False (Latin prefix "as-" + root, vowel-initial suffix)
         "assume"       → False (Latin prefix "as-" + root, vowel-initial suffix)
+
+    Examples (term = "fun"):
+        "fun"          → True  (exact)
+        "funhouse"     → True  (compound)
+        "fundamental"  → False (false-compound blocklist)
+        "function"     → False (false-compound blocklist)
+        "funded"       → False (false-compound blocklist)
 
     Examples (term = "amen"):
         "amen"       → True  (exact)
