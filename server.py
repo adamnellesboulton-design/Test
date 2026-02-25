@@ -92,6 +92,7 @@ def api_upload():
     """
     files = request.files.getlist("files[]")
     titles = request.form.getlist("title[]")
+    episode_dates = request.form.getlist("episode_date[]")
 
     if not files or all(f.filename == "" for f in files):
         return jsonify({"error": "No files provided"}), 400
@@ -109,8 +110,10 @@ def api_upload():
             errors.append({"filename": filename, "error": f"Could not read file: {exc}"})
             continue
 
-        # Auto-detect date from transcript content ("Episode Date: Month D, YYYY")
-        date = extract_episode_date(content)
+        # Prefer explicitly submitted date; otherwise auto-detect from transcript
+        # content ("Episode Date: Month D, YYYY").
+        submitted_date = episode_dates[i].strip() if i < len(episode_dates) else ""
+        date = submitted_date or extract_episode_date(content)
 
         if not content.strip():
             errors.append({"filename": filename, "error": "File is empty"})
