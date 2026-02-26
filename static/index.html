@@ -682,36 +682,6 @@ tbody td { padding: 9px 12px; }
   margin-bottom: 14px;
 }
 
-/* ── Per-minute panel ── */
-#minute-panel { display: none; }
-#minute-panel.visible { display: block; }
-#context-panel { display: none; }
-#context-panel.visible { display: block; }
-.ctx-hit {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: .88rem;
-  line-height: 1.55;
-}
-.ctx-hit:last-child { border-bottom: none; }
-.ctx-ts {
-  display: inline-block;
-  min-width: 52px;
-  color: var(--muted);
-  font-size: .78rem;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-.ctx-text { color: var(--text); }
-.ctx-match,
-.kw-highlight {
-  border-radius: 2px;
-  padding: 0 3px;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
-}
-.ep-title { line-height: 1.35; }
-
 /* ── Empty / loading states ── */
 .empty {
   text-align: center;
@@ -936,36 +906,6 @@ tbody td { padding: 9px 12px; }
       <div class="card">
         <div class="card-title" data-fv-grid>Fair value — P(≥ N mentions) in next episode</div>
         <div class="fv-grid" id="fv-grid"></div>
-      </div>
-
-      <!-- Per-minute panel -->
-      <div class="card" id="minute-panel">
-        <div class="card-title" id="minute-title">Per-minute breakdown</div>
-        <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
-      </div>
-
-      <!-- Context / KWIC panel -->
-      <div class="card" id="context-panel">
-        <div class="card-title" id="context-title">Transcript mentions</div>
-        <div id="context-hits"></div>
-      </div>
-
-      <!-- Episode table -->
-      <div class="card">
-        <div class="table-wrap">
-          <table id="ep-table">
-            <thead>
-              <tr>
-                <th>Episode</th>
-                <th>Date</th>
-                <th>Mentions</th>
-                <th>Per min</th>
-                <th>Title</th>
-              </tr>
-            </thead>
-            <tbody id="ep-tbody"></tbody>
-          </table>
-        </div>
       </div>
 
     </div><!-- /results -->
@@ -1872,10 +1812,6 @@ function renderResults(data, searchedKeywords = []) {
   // in OR mode show per-keyword grouped bars.
   renderFVChart(fv, isAnd ? null : data.per_keyword_fv, currentKeywordStyles);
   renderFVGrid(fv, primaryKeywordStyle);
-  renderTable(eps, currentKeywordStyles);
-
-  document.getElementById("minute-panel").classList.remove("visible");
-  if (minuteChart) { minuteChart.destroy(); minuteChart = null; }
 }
 
 // ── Trend chart ──────────────────────────────────────────────
@@ -2053,192 +1989,6 @@ function renderFVGrid(fv, badgeStyle = null) {
   }).join("");
 }
 
-function escRegExp(str) {
-  return String(str).replace(/[.*+?^${}()|]/g, "$&");
-}
-
-function highlightKeywords(text, kwStyles = {}) {
-  const terms = Object.keys(kwStyles).filter(Boolean).sort((a, b) => b.length - a.length);
-  if (!terms.length) return escHtml(text);
-
-  const pattern = new RegExp("\\b(" + terms.map(escRegExp).join("|") + ")\\b", "gi");
-  const safe = escHtml(text);
-  return safe.replace(pattern, (matched) => {
-    const style = getStyleForKeyword(matched, kwStyles);
-    return `<span class="kw-highlight" style="background:${style.hitBg};color:${style.line};box-shadow:0 0 10px ${style.glow};">${matched}</span>`;
-  });
-}
-
-function renderContextMatch(matchText, kwStyles = {}, keyword = "") {
-  const style = getStyleForKeyword(keyword || matchText, kwStyles);
-  return `<span class="ctx-match" style="background:${style.hitBg};color:${style.line};box-shadow:0 0 10px ${style.glow};">${escHtml(matchText)}</span>`;
-}
-
-// ── Episode table ─────────────────────────────────────────────
-function renderTable(episodes, kwStyles = {}) {
-  const tbody = document.getElementById("ep-tbody");
-  if (!tbody) return;
-  const pk = (currentData && currentData.per_keyword) || [];
-  const perKeywordEpisodeMaps = pk.map(kw => ({
-    keyword: kw.keyword,
-    idxMap: Object.fromEntries((kw.episodes || []).map(e => [e.episode_id, Number(e.count) || 0])),
-  }));
-
-  tbody.innerHTML = episodes.map(ep => {
-    const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
-    const badgeStyle = getStyleForKeyword(currentKeyword || "Mentions", kwStyles, 0);
-    const badge = ep.count > 0
-      ? `<span class="count-badge dynamic" style="background:${badgeStyle.barBg};border-color:${badgeStyle.base};color:${badgeStyle.line};box-shadow:0 0 10px ${badgeStyle.glow};">${ep.count}</span>`
-      : `<span class="count-badge zero">0</span>`;
-    const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
-    const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
-    return `<tr data-eid="${ep.episode_id}">
-      <td class="ep-num">${num}</td>
-      <td>${ep.episode_date || "—"}</td>
-      <td>${badge}</td>
-      <td>${pm}</td>
-      <td class="ep-title">${highlightKeywords(title, kwStyles)}</td>
-    </tr>`;
-  }).join("");
-
-  tbody.querySelectorAll("tr").forEach(row => {
-    row.addEventListener("click", () => {
-      tbody.querySelectorAll("tr").forEach(r => r.classList.remove("selected"));
-      row.classList.add("selected");
-      loadMinutes(parseInt(row.dataset.eid));
-    });
-  });
-}
-
-// ── Per-minute breakdown ──────────────────────────────────────
-async function loadMinutes(episodeId) {
-  if (!currentKeyword) return;
-  loadContext(episodeId, currentKeywordStyles);
-  try {
-    const mode = (currentData && currentData.mode) || "or";
-    const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}&mode=${mode}`);
-    const d = await r.json();
-
-    const panel = document.getElementById("minute-panel");
-    panel.classList.add("visible");
-    document.getElementById("minute-title").textContent =
-      `Per-minute — ${(d.title || String(episodeId)).slice(0, 60)}`;
-
-    const ctx = document.getElementById("minute-chart").getContext("2d");
-    if (minuteChart) minuteChart.destroy();
-
-    if (!d.minutes || d.minutes.length === 0) {
-      panel.querySelector("canvas").style.display = "none";
-      document.getElementById("minute-title").textContent += "  (no mentions)";
-      return;
-    }
-    panel.querySelector("canvas").style.display = "";
-
-    const labels  = d.minutes.map(m => `${m.minute}m`);
-    const counts  = d.minutes.map(m => m.count);
-    const mean    = counts.reduce((a, b) => a + b, 0) / counts.length;
-    const pk      = d.per_keyword;
-    const isAndMode = currentData && currentData.mode === "and";
-    const isMultiKeyword = pk && pk.length > 1;
-    // AND mode can stack cleanly.
-    const stacked = !!(isMultiKeyword && isAndMode);
-
-    let barDatasets;
-    if (isMultiKeyword) {
-      barDatasets = pk.map((kw, i) => {
-        const style = getStyleForKeyword(kw.keyword, currentKeywordStyles, i);
-        const data = d.minutes.map(m => kw.minutes[m.minute] ?? 0);
-        return {
-          label: kw.keyword,
-          data,
-          backgroundColor: style.barBg,
-          borderColor: style.base,
-          borderWidth: 1,
-          borderRadius: 3,
-          clip: false,
-          order: 2,
-          stack: stacked ? "kw" : undefined,
-        };
-      });
-    } else {
-      const label = pk && pk.length === 1 ? pk[0].keyword : "Mentions";
-      const style = getStyleForKeyword(label, currentKeywordStyles, 0);
-      barDatasets = [{ label, data: counts, backgroundColor: style.barBg, borderColor: style.base,
-                       borderWidth: 1, borderRadius: 3, clip: false, order: 2 }];
-    }
-
-    const rollingWindow = 20;
-    const rolling20 = counts.map((_, i) => {
-      const start = Math.max(0, i - rollingWindow + 1);
-      const window = counts.slice(start, i + 1);
-      return window.reduce((sum, value) => sum + value, 0) / window.length;
-    });
-
-    const lineDatasets = [
-      {
-        label: "20m rolling avg",
-        data: rolling20,
-        type: "line",
-        borderColor: "#b7f9ff",
-        backgroundColor: "#b7f9ff",
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.25,
-        order: 1,
-      },
-      { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
-        type: "line", borderColor: "#d9fff6", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
-    ];
-
-    minuteChart = new Chart(ctx, {
-      type: "bar",
-      data: { labels, datasets: [
-        ...barDatasets,
-        ...lineDatasets,
-      ]},
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: { legend: { labels: { color: "#8a8a8a", font: { size: 10 }, boxWidth: 14 } } },
-        scales: {
-          x: { offset: false, ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
-          y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
-        }
-      }
-    });
-
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (e) {
-    toast("Could not load per-minute data", "error");
-  }
-}
-
-// ── Transcript context (KWIC) ─────────────────────────────────
-async function loadContext(episodeId, kwStyles = {}) {
-  const panel = document.getElementById("context-panel");
-  const hitsEl = document.getElementById("context-hits");
-  const titleEl = document.getElementById("context-title");
-  panel.classList.remove("visible");
-  hitsEl.innerHTML = "";
-  try {
-    const r = await fetch(`/api/context?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}`);
-    const d = await r.json();
-    if (!d.hits || d.hits.length === 0) return;
-
-    titleEl.textContent = `Transcript mentions (${d.hits.length})`;
-    hitsEl.innerHTML = d.hits.map(h => {
-      const mm = String(h.minute).padStart(2, "0");
-      const ss = String(h.second).padStart(2, "0");
-      return `<div class="ctx-hit">
-        <span class="ctx-ts">${mm}:${ss}</span>
-        <span class="ctx-text">${escHtml(h.prefix)}${renderContextMatch(h.match, kwStyles, h.keyword)}${escHtml(h.suffix)}</span>
-      </div>`;
-    }).join("");
-    panel.classList.add("visible");
-  } catch (e) {
-    // silently skip if context unavailable
-  }
-}
-
 // ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
@@ -2257,7 +2007,7 @@ function updateThreshold() {
   const total = eps.length;
   if (total === 0) { result.innerHTML = "—"; return; }
 
-  // Use the merged episode count directly — this is the same value shown in the table.
+  // Use the merged episode count directly from the current search result.
   // OR mode:  e.count = total combined mentions (adjacency-deduped across all keywords).
   // AND mode: e.count = total combined mentions in co-occurring episodes; 0 for others,
   //           so episodes where any keyword was absent are naturally excluded.
