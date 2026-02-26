@@ -1405,9 +1405,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
   const mergedCounts = eps.map(e => e.count);
   const isMultiKeyword = perKeyword && perKeyword.length > 1;
-  // Stack only in AND mode. In OR mode, show grouped component bars and
-  // a deduped merged line so the final combined count remains visible.
-  const stacked = !!(isMultiKeyword && isAnd);
+  // For multi-keyword queries, stack per-keyword bars in both OR and AND
+  // modes so the histogram shows each keyword's contribution by color.
+  const stacked = !!isMultiKeyword;
 
   let barDatasets;
   if (isMultiKeyword) {
@@ -1456,7 +1456,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       borderWidth: 2,
       pointRadius: 0,
       tension: 0.25,
-      order: 0,
+      // Keep the rolling-average line above bars so it is always visible.
+      order: 10,
     }
   ];
 
@@ -1470,7 +1471,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       borderWidth: 1.8,
       pointRadius: 0,
       tension: 0.2,
-      order: 1,
+      order: 9,
     });
   }
 
