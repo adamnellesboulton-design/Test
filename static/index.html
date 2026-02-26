@@ -669,8 +669,39 @@ tbody td { padding: 9px 12px; }
 
 /* ── Responsive ── */
 @media (max-width: 720px) {
+  header { padding: 12px; gap: 10px; }
+  .logo { font-size: 1.1rem; }
+  .search-bar { min-width: 100%; flex-wrap: wrap; gap: 6px; }
+  .tag-input-wrap { min-height: 38px; padding: 4px 8px; }
+  .btn { padding: 8px 12px; font-size: .82rem; }
+  .mode-toggle { font-size: .72rem; }
+  .mode-toggle button { padding: 5px 8px; }
+
   .main-cols { flex-direction: column; }
   .sidebar { width: 100%; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; }
+  .content { padding: 14px; }
+  .card { padding: 14px; margin-bottom: 14px; }
+  .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .stat-card { padding: 10px; }
+  .stat-val { font-size: 1.25rem; }
+  .stat-label { font-size: .7rem; }
+
+  .avgs-row { gap: 8px; }
+  .avg-pill { flex: 1 1 calc(50% - 8px); min-width: 0; padding: 7px 10px; }
+  .avg-pill .v { font-size: .9rem; }
+
+  .threshold-row { gap: 6px; }
+  .threshold-label { font-size: .8rem; }
+  .threshold-input { width: 58px; font-size: .88rem; }
+  .threshold-result { font-size: .88rem; min-width: 0; }
+
+  .fv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fv-cell { padding: 10px 8px; }
+  .fv-pct { font-size: 1.2rem; }
+  .fv-model-badge { display: inline-block; max-width: 100%; white-space: normal; }
+
+  .table-wrap { font-size: .8rem; }
+  tbody td { padding: 8px 8px; }
 }
 </style>
 </head>
@@ -1424,6 +1455,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         borderColor: col,
         borderWidth: 1,
         borderRadius: 3,
+        grouped: false,
         type: "bar",
         order: 2,
         stack: stacked ? "kw" : undefined,
