@@ -6,31 +6,30 @@
 <title>Aero Transcript Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg:       #05070f;
-  --surface:  #0d1324;
-  --card:     #101b31;
-  --border:   #49b8ff;
-  --accent:   #00ff66;
-  --accent2:  #7ae0ff;
-  --gold:     #5dc3ff;
-  --green:    #00ff9f;
-  --text:     #d4f6ff;
-  --muted:    #87a9c7;
-  --radius:   0px;
+  --bg:       #05070d;
+  --surface:  #101826;
+  --card:     #131d2d;
+  --border:   #2b3f59;
+  --accent:   #4dd5a9;
+  --accent2:  #82bdfc;
+  --gold:     #86c5ff;
+  --green:    #49d79b;
+  --text:     #eaf2ff;
+  --muted:    #9cb0c8;
+  --radius:   8px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: 'VT323', 'Courier New', monospace;
-  letter-spacing: .02em;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0;
   background:
-    repeating-linear-gradient(0deg, rgba(70,255,149,.04), rgba(70,255,149,.04) 1px, transparent 1px, transparent 3px),
-    radial-gradient(1000px 540px at 10% -10%, rgba(107,192,255,.38), transparent 58%),
-    radial-gradient(980px 640px at 90% -5%, rgba(0,255,102,.12), transparent 64%),
-    linear-gradient(160deg, #04050b 0%, #090f20 42%, #060a17 100%);
+    radial-gradient(1000px 540px at 10% -10%, rgba(84,140,227,.16), transparent 58%),
+    radial-gradient(980px 640px at 90% -5%, rgba(71,212,160,.08), transparent 64%),
+    linear-gradient(160deg, #03050a 0%, #070c14 42%, #050910 100%);
   color: var(--text);
   min-height: 100vh;
 }
@@ -48,7 +47,7 @@ header {
   gap: 20px;
   flex-wrap: wrap;
 }
-.logo { font-family: 'Press Start 2P', monospace; font-size: .95rem; font-weight: 400; color: var(--accent); white-space: nowrap; text-shadow: 0 0 10px rgba(0,255,102,.8), 0 0 20px rgba(0,255,102,.35); }
+.logo { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
 .logo span { color: var(--text); }
 
 .search-bar {
@@ -66,8 +65,8 @@ header {
   border-radius: var(--radius);
   overflow: hidden;
   flex-shrink: 0;
-  font-size: .78rem;
-  font-weight: 600;
+  font-size: .8rem;
+  font-weight: 500;
 }
 .mode-toggle button {
   padding: 5px 10px;
@@ -142,12 +141,12 @@ header {
   border: 2px solid #9ed8ff;
   border-radius: var(--radius);
   font-size: .85rem;
-  font-weight: 400;
-  font-family: 'Press Start 2P', monospace;
+  font-weight: 600;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   cursor: pointer;
   transition: opacity .15s, transform .1s, filter .15s;
-  text-transform: uppercase;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.65), 0 0 14px rgba(54,156,255,.25);
+  text-transform: none;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.12), inset -1px -1px 0 rgba(0,0,0,.45), 0 0 14px rgba(54,156,255,.18);
 }
 .btn:hover { filter: brightness(1.08); }
 .btn:active { transform: translateY(1px); box-shadow: inset -1px -1px 0 rgba(255,255,255,.2), inset 1px 1px 0 rgba(0,0,0,.75); }
@@ -460,8 +459,8 @@ header {
   overflow-y: auto;
   min-width: 0;
   background:
-    radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.15), transparent 56%),
-    repeating-linear-gradient(90deg, rgba(121,198,255,.05), rgba(121,198,255,.05) 1px, transparent 1px, transparent 5px);
+    radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.08), transparent 56%),
+    linear-gradient(180deg, rgba(7,14,24,.76), rgba(6,11,20,.88));
 }
 
 /* ── Cards ── */
@@ -1646,8 +1645,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         }
       },
       scales: {
-        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
-        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
+        x: { ticks: { color: "#a6b8cf", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1696,8 +1695,8 @@ function renderFVChart(fv, pkFv) {
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
-        x: { ticks: { color: "#888" }, grid: { color: "#22223a" } },
-        y: { ticks: { color: "#888", callback: v => v + "%" }, grid: { color: "#22223a" }, beginAtZero: true, max: 100 }
+        x: { ticks: { color: "#a6b8cf" }, grid: { display: false } },
+        y: { ticks: { color: "#a6b8cf", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -1815,8 +1814,8 @@ async function loadMinutes(episodeId) {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" }, stacked },
-          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
+          x: { ticks: { color: "#a6b8cf", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
     });
