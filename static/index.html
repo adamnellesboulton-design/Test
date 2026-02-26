@@ -181,6 +181,47 @@ header {
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
+  transition: width .2s ease, min-width .2s ease;
+  position: relative;
+}
+.sidebar-rail-label {
+  display: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: .08em;
+  font-size: .7rem;
+  color: var(--accent2);
+  text-transform: uppercase;
+  padding: 12px 6px;
+  user-select: none;
+  cursor: default;
+}
+.mobile-sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: -30px;
+  width: 30px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-left: none;
+  background: var(--surface);
+  color: var(--accent2);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.main-cols.sidebar-collapsed .sidebar {
+  width: 28px;
+  min-width: 28px;
+}
+.main-cols.sidebar-collapsed .sidebar-header,
+.main-cols.sidebar-collapsed .select-all-row,
+.main-cols.sidebar-collapsed .episode-count,
+.main-cols.sidebar-collapsed .episode-list {
+  display: none;
+}
+.main-cols.sidebar-collapsed .sidebar-rail-label {
+  display: flex;
 }
 .sidebar-header {
   padding: 16px;
@@ -687,7 +728,36 @@ tbody td { padding: 9px 12px; }
   .mode-toggle button { padding: 5px 8px; }
 
   .main-cols { flex-direction: column; }
-  .sidebar { width: 100%; max-width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 260px; }
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 64px;
+    bottom: 0;
+    z-index: 40;
+    width: min(86vw, 340px);
+    min-width: min(86vw, 340px);
+    max-width: min(86vw, 340px);
+    border-right: 2px solid var(--border);
+    border-bottom: none;
+    transform: translateX(calc(-100% + 30px));
+    transition: transform .2s ease;
+    max-height: none;
+  }
+  .mobile-sidebar-open .sidebar { transform: translateX(0); }
+  .mobile-sidebar-toggle { display: block; }
+  .mobile-sidebar-open .mobile-sidebar-toggle { right: 0; }
+  .mobile-sidebar-open .mobile-sidebar-toggle .arr { transform: rotate(180deg); display: inline-block; }
+  .sidebar-rail-label { display: flex; }
+  .sidebar-header,
+  .select-all-row,
+  .episode-count,
+  .episode-list { display: none; }
+  .mobile-sidebar-open .sidebar-header,
+  .mobile-sidebar-open .select-all-row,
+  .mobile-sidebar-open .episode-count,
+  .mobile-sidebar-open .episode-list { display: flex; }
+  .mobile-sidebar-open .episode-list { display: block; }
+  .mobile-sidebar-open .sidebar-rail-label { display: none; }
   .content { padding: 14px; }
   .card { padding: 14px; margin-bottom: 14px; }
   .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -742,7 +812,9 @@ tbody td { padding: 9px 12px; }
 <div class="main-cols">
 
   <!-- ── Sidebar: Episodes ── -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" aria-label="Toggle episodes sidebar"><span class="arr">❯</span></button>
+    <div class="sidebar-rail-label" id="sidebar-rail-label">Episodes</div>
     <div class="sidebar-header">
       <div class="sidebar-title">Episodes</div>
       <div class="sidebar-actions">
@@ -961,6 +1033,7 @@ let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
 let queuedFiles   = [];   // [{file, title, date}]
+let desktopSidebarCollapsed = false;
 
 // ────────────────────────────────────────────────────────────
 // Boot
@@ -997,6 +1070,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("upload-btn").addEventListener("click", openUpload);
   document.getElementById("search-selected-btn").addEventListener("click", doSearch);
   document.getElementById("select-all-cb").addEventListener("change", toggleSelectAll);
+  initSidebarBehavior();
 
   // Upload panel
   document.getElementById("upload-cancel-btn").addEventListener("click", closeUpload);
@@ -1047,6 +1121,44 @@ function updateStatus() {
     document.getElementById("no-data-msg").classList.add("visible");
     document.getElementById("results").classList.remove("visible");
   }
+}
+
+
+function initSidebarBehavior() {
+  const cols = document.querySelector(".main-cols");
+  const sidebar = document.getElementById("sidebar");
+  const mobileToggle = document.getElementById("mobile-sidebar-toggle");
+
+  const applySidebarMode = () => {
+    if (window.matchMedia("(max-width: 720px)").matches) {
+      cols.classList.remove("sidebar-collapsed");
+      desktopSidebarCollapsed = false;
+      return;
+    }
+    desktopSidebarCollapsed = true;
+    cols.classList.add("sidebar-collapsed");
+    cols.classList.remove("mobile-sidebar-open");
+  };
+
+  applySidebarMode();
+  window.addEventListener("resize", applySidebarMode);
+
+  sidebar.addEventListener("mouseenter", () => {
+    if (window.matchMedia("(max-width: 720px)").matches) return;
+    cols.classList.remove("sidebar-collapsed");
+  });
+  sidebar.addEventListener("mouseleave", () => {
+    if (window.matchMedia("(max-width: 720px)").matches) return;
+    if (desktopSidebarCollapsed) cols.classList.add("sidebar-collapsed");
+  });
+  sidebar.addEventListener("wheel", () => {
+    if (window.matchMedia("(max-width: 720px)").matches) return;
+    cols.classList.remove("sidebar-collapsed");
+  }, { passive: true });
+
+  mobileToggle.addEventListener("click", () => {
+    cols.classList.toggle("mobile-sidebar-open");
+  });
 }
 
 // ────────────────────────────────────────────────────────────
