@@ -75,18 +75,3 @@ In `server.py` upload handler, the API documented support for multipart `episode
 3. falls back to transcript date extraction when not present
 
 This keeps implementation aligned with API docs and expected UI/API behavior.
-
-
-## Recent hardening + streamlining updates
-
-- `server.py` now centralizes request parsing helpers for:
-  - `mode` validation (`or`/`and` only),
-  - comma-split keyword term parsing,
-  - optional episode-id list parsing,
-  - per-term search result construction.
-- Shared helper usage removed duplicated parsing logic across `/api/search`, `/api/minutes`, and `/api/context`.
-- API validation is now more consistent:
-  - invalid mode values return `400`,
-  - empty parsed keyword sets return `400` on all keyword-driven endpoints.
-
-These changes reduce repeated logic, improve maintainability, and tighten input validation behavior without changing core search semantics.
