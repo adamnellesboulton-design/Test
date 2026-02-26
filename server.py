@@ -167,29 +167,36 @@ def api_upload():
             errors.append({"filename": filename, "error": f"Parse error: {exc}"})
             continue
 
-        episode_id = db.insert_episode(
-            title=title,
-            transcript=segments,
-            episode_date=date,
-            filename=filename,
-            duration_seconds=duration,
-        )
+        try:
+            episode_id = db.insert_episode(
+                title=title,
+                transcript=segments,
+                episode_date=date,
+                filename=filename,
+                duration_seconds=duration,
+            )
 
-        # Index immediately (fast for a single episode)
-        index_episode(db, episode_id)
+            # Index immediately (fast for a single episode)
+            indexed = index_episode(db, episode_id)
+            ep = db.get_episode(episode_id)
+            if ep is None:
+                raise RuntimeError("Episode saved but could not be reloaded")
 
-        ep = db.get_episode(episode_id)
-        created.append({
-            "id":               ep["id"],
-            "title":            ep["title"],
-            "episode_date":     ep["episode_date"],
-            "episode_number":   ep["episode_number"],
-            "filename":         ep["filename"],
-            "uploaded_at":      ep["uploaded_at"],
-            "duration_seconds": ep["duration_seconds"],
-            "segment_count":    len(segments),
-            "indexed":          True,
-        })
+            created.append({
+                "id":               ep["id"],
+                "title":            ep["title"],
+                "episode_date":     ep["episode_date"],
+                "episode_number":   ep["episode_number"],
+                "filename":         ep["filename"],
+                "uploaded_at":      ep["uploaded_at"],
+                "duration_seconds": ep["duration_seconds"],
+                "segment_count":    len(segments),
+                "indexed":          bool(indexed),
+            })
+        except Exception as exc:
+            app.logger.exception("Failed to store/index uploaded transcript", exc_info=exc)
+            errors.append({"filename": filename, "error": f"Storage/index error: {exc}"})
+            continue
 
     return jsonify({"created": created, "errors": errors})
 
@@ -414,17 +421,11 @@ def api_minutes():
     # Always return a full timeline from t=0 through episode duration so
     # minute charts cover the full episode, not only up to last mention.
     duration_seconds = (ep.duration_seconds if ep else 0) or 0
-    if duration_seconds <= 0:
-        transcript = db.get_transcript(eid)
-        if transcript:
-            duration_seconds = int(max(seg.get("start", 0) for seg in transcript)) + 60
     duration_last_minute = max(0, math.ceil(duration_seconds / 60) - 1)
 
-    # Even when there are no mentions, keep a zero-filled timeline across
-    # the full episode so histogram start/end match the selected dataset.
-    mention_last_minute = max(merged_counts) if merged_counts else 0
-    max_minute = max(mention_last_minute, duration_last_minute)
-    full_range = list(range(0, max_minute + 1))
+    # Always return a full timeline from t=0 so minute charts and
+    # rolling averages start at the true episode beginning.
+    full_range = list(range(0, max(merged_counts) + 1))
 
     return jsonify({
         "episode_id":  eid,
