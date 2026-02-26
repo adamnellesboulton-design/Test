@@ -1791,7 +1791,25 @@ async function loadMinutes(episodeId) {
                        borderWidth: 1, borderRadius: 3, order: 2 }];
     }
 
+    const rollingWindow = 20;
+    const rolling20 = counts.map((_, i) => {
+      const start = Math.max(0, i - rollingWindow + 1);
+      const window = counts.slice(start, i + 1);
+      return window.reduce((sum, value) => sum + value, 0) / window.length;
+    });
+
     const lineDatasets = [
+      {
+        label: "20m rolling avg",
+        data: rolling20,
+        type: "line",
+        borderColor: "#8a8a8a",
+        backgroundColor: "#8a8a8a",
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.25,
+        order: 1,
+      },
       { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
         type: "line", borderColor: "#e6e6e6", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
     ];
