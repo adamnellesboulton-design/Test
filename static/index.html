@@ -1781,6 +1781,11 @@ function renderResults(data, searchedKeywords = []) {
   let displayAveragesPerMin = data.averages_per_min;
 
   const total = eps.reduce((s, e) => s + e.count, 0);
+  const totalPerMinute = eps.reduce((s, e) => s + Number(e.per_minute || 0), 0);
+  const avgAll = eps.length ? (total / eps.length) : null;
+  const avgPerMinAll = eps.length ? (totalPerMinute / eps.length) : null;
+  displayAverages = { ...displayAverages, all: avgAll };
+  displayAveragesPerMin = { ...displayAveragesPerMin, all: avgPerMinAll };
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
 
@@ -1794,6 +1799,7 @@ function renderResults(data, searchedKeywords = []) {
       {cls:"ep20",  n:"Last 20",  v: a.last_20,  pm: apm.last_20},
       {cls:"ep50",  n:"Last 50",  v: a.last_50,  pm: apm.last_50},
       {cls:"ep100", n:"Last 100", v: a.last_100, pm: apm.last_100},
+      {cls:"epall", n:"All",      v: a.all,      pm: apm.all},
     ];
     const pillStyle = style
       ? ` style="border-color:${style.base};box-shadow:0 0 8px ${style.glow};"`
