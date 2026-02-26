@@ -1484,6 +1484,21 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   // modes so the histogram shows each keyword's contribution by color.
   const stacked = !!isMultiKeyword;
 
+  // Compute stacked totals directly from per-keyword episode counts.
+  // This is the series represented by the stacked bars in OR mode.
+  const perKeywordMaps = isMultiKeyword
+    ? perKeyword.map(kw => Object.fromEntries((kw.episodes || []).map(ep => [ep.episode_id, Number(ep.count || 0)])))
+    : [];
+  const stackedCounts = isMultiKeyword
+    ? eps.map(e =>
+        perKeywordMaps.reduce((sum, cmap) => {
+          const v = Number(cmap[e.episode_id] || 0);
+          if (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) return sum;
+          return sum + v;
+        }, 0)
+      )
+    : mergedCounts;
+
   let barDatasets;
   if (isMultiKeyword) {
     barDatasets = perKeyword.map((kw, i) => {
@@ -1522,9 +1537,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   // total. Using mergedCounts there makes the rolling line look "wrong"
   // relative to the bars.
   const rollingSourceCounts = (isMultiKeyword && !isAnd)
-    ? mergedCounts.map((_, i) =>
-        barDatasets.reduce((sum, ds) => sum + Number(ds.data[i] ?? 0), 0)
-      )
+    ? stackedCounts
     : mergedCounts;
 
   const rolling20 = rollingSourceCounts.map((_, i) => {
@@ -1550,19 +1563,6 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     }
   ];
 
-  if (isMultiKeyword && !isAnd) {
-    lineDatasets.push({
-      label: "Combined (deduped)",
-      data: mergedCounts,
-      type: "line",
-      borderColor: "#ffffff",
-      backgroundColor: "#ffffff",
-      borderWidth: 1.8,
-      pointRadius: 0,
-      tension: 0.2,
-      order: 9,
-    });
-  }
 
   trendChart = new Chart(ctx, {
     data: { labels, datasets: [...barDatasets, ...lineDatasets] },
