@@ -1718,8 +1718,29 @@ async function doSearch() {
 // ────────────────────────────────────────────────────────────
 // Render
 // ────────────────────────────────────────────────────────────
+function getDisplayEpisodes(apiEpisodes = []) {
+  const byId = new Map((apiEpisodes || []).map(ep => [ep.episode_id, ep]));
+  const selectedMeta = allEpisodes.filter(ep => selectedIds.has(ep.id));
+  if (selectedMeta.length === 0) return apiEpisodes || [];
+
+  return selectedMeta.map(meta => {
+    const existing = byId.get(meta.id);
+    if (existing) return existing;
+    const duration = Number(meta.duration_seconds || 0);
+    return {
+      episode_id: meta.id,
+      title: meta.title,
+      episode_date: meta.episode_date,
+      episode_number: meta.episode_number,
+      duration_seconds: duration,
+      count: 0,
+      per_minute: 0,
+    };
+  });
+}
+
 function renderResults(data, searchedKeywords = []) {
-  const eps  = data.episodes;
+  const eps  = getDisplayEpisodes(data.episodes);
   const avgs = data.averages;
   const fv   = data.fair_value;
 
