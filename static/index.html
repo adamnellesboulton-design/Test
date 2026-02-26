@@ -10,16 +10,16 @@
 
 :root {
   --bg:       #000000;
-  --surface:  #0f1021;
-  --card:     #13142b;
-  --border:   #2f1f55;
-  --accent:   #ff3ef3;
-  --accent2:  #10f6ff;
-  --gold:     #ffe066;
-  --green:    #41ff95;
-  --danger:   #ff5f8a;
-  --text:     #f3ecff;
-  --muted:    #a689d8;
+  --surface:  #111111;
+  --card:     #111111;
+  --border:   #2a2a2a;
+  --accent:   #e6e6e6;
+  --accent2:  #8a8a8a;
+  --gold:     #e6e6e6;
+  --green:    #8a8a8a;
+  --danger:   #e6e6e6;
+  --text:     #e6e6e6;
+  --muted:    #8a8a8a;
   --radius:   0px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,8 +29,8 @@ body {
   font-family: 'VT323', 'Courier New', monospace;
   letter-spacing: 0;
   background:
-    linear-gradient(180deg, rgba(255,62,243,.08) 0 1px, transparent 1px 100%),
-    linear-gradient(90deg, rgba(16,246,255,.08) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(230,230,230,.06) 0 1px, transparent 1px 100%),
+    linear-gradient(90deg, rgba(230,230,230,.06) 0 1px, transparent 1px 100%),
     var(--bg);
   background-size: 18px 18px, 18px 18px, auto;
   color: var(--text);
@@ -593,17 +593,17 @@ tbody tr.selected { background: rgba(230,230,230,.12); }
 tbody td { padding: 9px 12px; }
 .count-badge {
   display: inline-block;
-  background: rgba(255,62,243,.18);
+  background: var(--surface);
   color: var(--text);
   border-radius: 0;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--border);
   padding: 1px 7px;
   font-weight: 700;
   font-size: .82rem;
   min-width: 24px;
   text-align: center;
 }
-.count-badge.zero { background: rgba(47,31,85,.65); color: var(--muted); border-color: var(--border); }
+.count-badge.zero { background: var(--border); color: var(--muted); }
 .ep-num { color: var(--accent2); font-weight: 600; }
 .per-min { color: var(--muted); font-size: .8rem; }
 
@@ -627,14 +627,13 @@ tbody td { padding: 9px 12px; }
 .fv-label { font-size: .7rem; color: var(--muted); margin-top: 3px; }
 .fv-model-badge {
   display: inline-block;
-  background: rgba(16,246,255,.1);
-  border: 1px solid var(--accent2);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0;
   padding: 3px 10px;
   font-size: .75rem;
   color: var(--accent2);
   margin-bottom: 14px;
-  box-shadow: 0 0 8px rgba(16,246,255,.35);
 }
 
 /* ── Per-minute panel ── */
@@ -1007,9 +1006,9 @@ let currentData   = null;
 let currentKeyword = "";
 
 // Colour palette for multi-keyword charts (stacked bars)
-const KW_COLORS = ["#ff3ef3", "#10f6ff", "#8a5dff", "#41ff95", "#ffe066"];
+const KW_COLORS = ["#e6e6e6", "#8a8a8a", "#2a2a2a", "#111111", "#e6e6e6"];
 Chart.defaults.font.family = "'Press Start 2P', 'VT323', monospace";
-Chart.defaults.color = "#a689d8";
+Chart.defaults.color = "#8a8a8a";
 let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
@@ -1612,8 +1611,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       label: "Rolling avg (20 eps)",
       data: rolling20,
       type: "line",
-      borderColor: "#10f6ff",
-      backgroundColor: "#10f6ff",
+      borderColor: "#e6e6e6",
+      backgroundColor: "#e6e6e6",
       borderWidth: 2,
       pointRadius: 0,
       tension: 0.25,
@@ -1629,7 +1628,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: { labels: { color: "#a689d8", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        legend: { labels: { color: "#8a8a8a", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
         tooltip: {
           callbacks: {
             title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
@@ -1638,8 +1637,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         }
       },
       scales: {
-        x: { ticks: { color: "#a689d8", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "rgba(16,246,255,.15)" }, stacked },
-        y: { ticks: { color: "#a689d8" }, grid: { color: "rgba(255,62,243,.15)" }, beginAtZero: true, stacked }
+        x: { ticks: { color: "#8a8a8a", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1657,7 +1656,7 @@ function renderFVChart(fv, pkFv) {
   // OR multi-kw mode: one grouped bar per keyword.
   // Single keyword: single bar.
   const isAndMode = pkFv === null;
-  const AND_COLOR = "#10f6ff";
+  const AND_COLOR = "#e6e6e6";
 
   const datasets = multiKw
     ? pkFv.map((kw, i) => {
@@ -1684,12 +1683,12 @@ function renderFVChart(fv, pkFv) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: multiKw || isAndMode, labels: { color: "#a689d8", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        legend: { display: multiKw || isAndMode, labels: { color: "#8a8a8a", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
-        x: { ticks: { color: "#a689d8" }, grid: { color: "rgba(16,246,255,.15)" } },
-        y: { ticks: { color: "#a689d8", callback: v => v + "%" }, grid: { color: "rgba(255,62,243,.15)" }, beginAtZero: true, max: 100 }
+        x: { ticks: { color: "#8a8a8a" }, grid: { display: false } },
+        y: { ticks: { color: "#8a8a8a", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -1823,10 +1822,10 @@ async function loadMinutes(episodeId) {
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: { legend: { labels: { color: "#a689d8", font: { size: 10 }, boxWidth: 14 } } },
+        plugins: { legend: { labels: { color: "#8a8a8a", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#a689d8", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "rgba(16,246,255,.15)" }, stacked },
-          y: { ticks: { color: "#a689d8" }, grid: { color: "rgba(255,62,243,.15)" }, beginAtZero: true, stacked }
+          x: { ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
     });
