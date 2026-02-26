@@ -6,30 +6,33 @@
 <title>Aero Transcript Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
 :root {
-  --bg:       #05070d;
-  --surface:  #101826;
-  --card:     #131d2d;
-  --border:   #2b3f59;
-  --accent:   #4dd5a9;
-  --accent2:  #82bdfc;
-  --gold:     #86c5ff;
-  --green:    #49d79b;
-  --text:     #eaf2ff;
-  --muted:    #9cb0c8;
-  --radius:   8px;
+  --bg:       #04030a;
+  --surface:  #0c0a18;
+  --card:     #141024;
+  --border:   #3f3568;
+  --accent:   #ffe26d;
+  --accent2:  #52d6ff;
+  --gold:     #ffb347;
+  --green:    #58f38a;
+  --danger:   #ff5b7f;
+  --text:     #efe9ff;
+  --muted:    #9d91c5;
+  --radius:   0px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+input, select, textarea, button { font: inherit; }
 html, body { height: 100%; }
 body {
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'VT323', 'Courier New', monospace;
   letter-spacing: 0;
   background:
-    radial-gradient(1000px 540px at 10% -10%, rgba(84,140,227,.16), transparent 58%),
-    radial-gradient(980px 640px at 90% -5%, rgba(71,212,160,.08), transparent 64%),
-    linear-gradient(160deg, #03050a 0%, #070c14 42%, #050910 100%);
+    linear-gradient(180deg, rgba(255,255,255,.04) 0 2px, transparent 2px 100%),
+    linear-gradient(90deg, rgba(255,255,255,.03) 0 2px, transparent 2px 100%),
+    linear-gradient(160deg, #020203 0%, #07050e 46%, #0b0815 100%);
+  background-size: 8px 8px, 8px 8px, auto;
   color: var(--text);
   min-height: 100vh;
 }
@@ -38,16 +41,16 @@ body {
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
 header {
-  background: linear-gradient(180deg, #294f89, #12284c 58%, #0b1e38);
+  background: linear-gradient(180deg, #191427, #100d1a 58%, #09070f);
   border-bottom: 2px solid var(--border);
-  box-shadow: 0 0 0 2px rgba(0,0,0,.75), inset 0 0 0 2px rgba(196,229,255,.2), 0 12px 24px rgba(0,0,0,.45);
+  box-shadow: 0 0 0 2px #080511, inset 0 0 0 2px rgba(255,238,173,.25), 0 8px 0 #080511;
   padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
 }
-.logo { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
+.logo { font-size: .9rem; font-weight: 400; color: var(--accent); white-space: nowrap; text-shadow: 2px 2px 0 #080511; font-family: 'Press Start 2P', cursive; }
 .logo span { color: var(--text); }
 
 .search-bar {
@@ -65,8 +68,8 @@ header {
   border-radius: var(--radius);
   overflow: hidden;
   flex-shrink: 0;
-  font-size: .8rem;
-  font-weight: 500;
+  font-size: .95rem;
+  font-weight: 400;
 }
 .mode-toggle button {
   padding: 5px 10px;
@@ -79,7 +82,7 @@ header {
 }
 .mode-toggle button.active {
   background: var(--accent);
-  color: #fff;
+  color: #2a1b00;
 }
 .mode-toggle button:first-child {
   border-right: 1px solid var(--border);
@@ -115,9 +118,9 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: linear-gradient(180deg, #52d3ff, #2c7bff);
-  color: #effcff;
-  border: 1px solid #8de8ff;
+  background: linear-gradient(180deg, #67e2ff, #2f96d4);
+  color: #f6fcff;
+  border: 2px solid #b5f2ff;
   border-radius: 0;
   padding: 2px 6px 2px 9px;
   font-size: .82rem;
@@ -138,23 +141,23 @@ header {
 
 .btn {
   padding: 10px 20px;
-  border: 2px solid #9ed8ff;
+  border: 2px solid var(--border);
   border-radius: var(--radius);
-  font-size: .85rem;
-  font-weight: 600;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: .8rem;
+  font-weight: 400;
+  font-family: 'Press Start 2P', cursive;
   cursor: pointer;
   transition: opacity .15s, transform .1s, filter .15s;
-  text-transform: none;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.12), inset -1px -1px 0 rgba(0,0,0,.45), 0 0 14px rgba(54,156,255,.18);
+  text-transform: uppercase;
+  box-shadow: inset 2px 2px 0 rgba(255,255,255,.12), inset -2px -2px 0 rgba(0,0,0,.45), 0 4px 0 #080511;
 }
 .btn:hover { filter: brightness(1.08); }
-.btn:active { transform: translateY(1px); box-shadow: inset -1px -1px 0 rgba(255,255,255,.2), inset 1px 1px 0 rgba(0,0,0,.75); }
+.btn:active { transform: translateY(2px); box-shadow: inset -2px -2px 0 rgba(255,255,255,.2), inset 2px 2px 0 rgba(0,0,0,.75); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-primary   { background: linear-gradient(180deg, #00ff66, #00bd4f); color: #02150a; }
-.btn-secondary { background: linear-gradient(180deg, #66a9ff, #3f6fc4 65%, #31579b); color: #ecf7ff; }
-.btn-blue      { background: linear-gradient(180deg, #8bf0ff, #4fa4ff); color: #06213c; }
-.btn-danger    { background: linear-gradient(180deg, #2e0f21, #210817); color: #ff5da0; border-color: #ff5da0; font-size: .8rem; padding: 5px 10px; }
+.btn-primary   { background: linear-gradient(180deg, #ffe26d, #ffb347); color: #301b00; border-color: #ffe9a6; }
+.btn-secondary { background: linear-gradient(180deg, #7f65d6, #513595 65%, #3d2973); color: #f7f2ff; }
+.btn-blue      { background: linear-gradient(180deg, #89e7ff, #52bde8); color: #032739; border-color: #c6f4ff; }
+.btn-danger    { background: linear-gradient(180deg, #9a1f4d, #701238); color: #ffe5ee; border-color: #ff7aa2; font-size: .8rem; padding: 5px 10px; }
 .btn-sm        { padding: 6px 12px; font-size: .8rem; }
 
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -174,7 +177,7 @@ header {
   width: 320px;
   min-width: 280px;
   max-width: 380px;
-  background: linear-gradient(180deg, rgba(44,78,130,.82), rgba(14,34,61,.92));
+  background: linear-gradient(180deg, rgba(22,18,34,.98), rgba(10,8,17,.99));
   border-right: 2px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -363,7 +366,7 @@ header {
   gap: 4px 16px; margin-bottom: 6px;
 }
 .help-kv .k {
-  font-family: monospace; font-size: .82rem;
+  font-family: 'Press Start 2P', monospace; font-size: .65rem;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; padding: 1px 7px;
   color: var(--accent2); white-space: nowrap; align-self: start;
@@ -459,18 +462,19 @@ header {
   overflow-y: auto;
   min-width: 0;
   background:
-    radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.08), transparent 56%),
-    linear-gradient(180deg, rgba(7,14,24,.76), rgba(6,11,20,.88));
+    linear-gradient(180deg, rgba(255,255,255,.04) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(8,6,14,.95), rgba(6,5,10,.99));
+  background-size: 100% 6px, auto;
 }
 
 /* ── Cards ── */
 .card {
-  background: linear-gradient(180deg, rgba(44,82,139,.72), rgba(11,24,45,.9));
+  background: linear-gradient(180deg, rgba(28,22,44,.95), rgba(12,9,20,.97));
   border: 2px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 10px 20px rgba(0,0,0,.35), inset 1px 1px 0 rgba(195,233,255,.2), inset -1px -1px 0 rgba(0,0,0,.55);
+  box-shadow: 0 5px 0 #080511, inset 2px 2px 0 rgba(255,255,255,.16), inset -2px -2px 0 rgba(0,0,0,.55);
 }
 .card-title {
   font-size: .82rem;
@@ -484,13 +488,13 @@ header {
 /* ── Stats row ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card {
-  background: linear-gradient(180deg, rgba(39,78,133,.7), rgba(17,39,69,.88));
-  border: 2px solid rgba(113,194,255,.9);
+  background: linear-gradient(180deg, rgba(30,24,50,.95), rgba(14,10,24,.97));
+  border: 2px solid #4f4278;
   border-radius: var(--radius);
   padding: 14px 16px;
   text-align: center;
 }
-.stat-val { font-size: 2rem; font-weight: 700; color: var(--accent); text-shadow: 0 0 10px rgba(0,255,102,.4); }
+.stat-val { font-size: 2rem; font-weight: 700; color: var(--accent); text-shadow: 2px 2px 0 rgba(8,5,17,.8); }
 .stat-val.blue  { color: var(--accent2); }
 .stat-val.gold  { color: var(--gold); }
 .stat-val.green { color: var(--green); }
@@ -569,7 +573,7 @@ header {
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 thead th {
-  background: linear-gradient(180deg, rgba(80,133,201,.95), rgba(38,79,134,.95));
+  background: linear-gradient(180deg, rgba(43,35,68,.98), rgba(22,17,34,.99));
   padding: 10px 12px;
   text-align: left;
   font-size: .75rem;
@@ -589,9 +593,10 @@ tbody tr.selected { background: rgba(0,255,102,.12); }
 tbody td { padding: 9px 12px; }
 .count-badge {
   display: inline-block;
-  background: #00dd61;
-  color: #03160d;
+  background: #ffe26d;
+  color: #2f2200;
   border-radius: 0;
+  border: 2px solid #fff1b6;
   padding: 1px 7px;
   font-weight: 700;
   font-size: .82rem;
@@ -624,7 +629,7 @@ tbody td { padding: 9px 12px; }
   display: inline-block;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 3px 10px;
   font-size: .75rem;
   color: var(--accent2);
@@ -653,8 +658,8 @@ tbody td { padding: 9px 12px; }
 }
 .ctx-text { color: var(--text-secondary, #ccc); }
 .ctx-match {
-  background: rgba(0,255,102,.2);
-  color: #69ffad;
+  background: rgba(255,226,109,.24);
+  color: #fff1b6;
   border-radius: 0;
   padding: 0 3px;
   font-weight: 600;
@@ -1027,7 +1032,9 @@ let currentData   = null;
 let currentKeyword = "";
 
 // Colour palette for multi-keyword charts (stacked bars)
-const KW_COLORS = ["#e94560","#a855f7","#f97316","#ec4899","#3b82f6","#14b8a6","#eab308"];
+const KW_COLORS = ["#ffe26d","#52d6ff","#ffb347","#ff5b7f","#8f78da","#58f38a","#d9b7ff"];
+Chart.defaults.font.family = "'Press Start 2P', 'VT323', monospace";
+Chart.defaults.color = "#9d91c5";
 let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
@@ -1636,7 +1643,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        legend: { labels: { color: "#9d91c5", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
         tooltip: {
           callbacks: {
             title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
@@ -1645,8 +1652,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         }
       },
       scales: {
-        x: { ticks: { color: "#a6b8cf", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
-        y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
+        x: { ticks: { color: "#9d91c5", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        y: { ticks: { color: "#9d91c5" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1691,12 +1698,12 @@ function renderFVChart(fv, pkFv) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: multiKw || isAndMode, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        legend: { display: multiKw || isAndMode, labels: { color: "#9d91c5", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
-        x: { ticks: { color: "#a6b8cf" }, grid: { display: false } },
-        y: { ticks: { color: "#a6b8cf", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
+        x: { ticks: { color: "#9d91c5" }, grid: { display: false } },
+        y: { ticks: { color: "#9d91c5", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -1812,10 +1819,10 @@ async function loadMinutes(episodeId) {
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
+        plugins: { legend: { labels: { color: "#9d91c5", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#a6b8cf", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
-          y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
+          x: { ticks: { color: "#9d91c5", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          y: { ticks: { color: "#9d91c5" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
     });
