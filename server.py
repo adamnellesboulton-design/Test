@@ -416,11 +416,9 @@ def api_minutes():
     duration_seconds = (ep.duration_seconds if ep else 0) or 0
     duration_last_minute = max(0, math.ceil(duration_seconds / 60) - 1)
 
-    # Even when there are no mentions, keep a zero-filled timeline across
-    # the full episode so histogram start/end match the selected dataset.
-    mention_last_minute = max(merged_counts) if merged_counts else 0
-    max_minute = max(mention_last_minute, duration_last_minute)
-    full_range = list(range(0, max_minute + 1))
+    # Always return a full timeline from t=0 so minute charts and
+    # rolling averages start at the true episode beginning.
+    full_range = list(range(0, max(merged_counts) + 1))
 
     return jsonify({
         "episode_id":  eid,
