@@ -1168,10 +1168,10 @@ function buildKeywordColorOrder(keywords = []) {
 function getKeywordColor(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
   const term = String(keyword || "").toLowerCase();
   if (typeof index === "number" && index >= 0) {
-    return KEYWORD_CONTRAST_ROTATION[index % KEYWORD_CONTRAST_ROTATION.length];
+    return colorOrder[index % colorOrder.length];
   }
   const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return KEYWORD_CONTRAST_ROTATION[seed % KEYWORD_CONTRAST_ROTATION.length];
+  return colorOrder[seed % colorOrder.length];
 }
 
 function buildKeywordStyle(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
