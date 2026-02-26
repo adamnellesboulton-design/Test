@@ -1940,7 +1940,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
         }
       },
       scales: {
-        x: { ticks: { color: "#8a8a8a", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        x: { offset: true, ticks: { color: "#8a8a8a", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
         y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
@@ -2170,7 +2170,7 @@ async function loadMinutes(episodeId) {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: { legend: { labels: { color: "#8a8a8a", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          x: { offset: false, ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
           y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
