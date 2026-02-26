@@ -1472,15 +1472,28 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     }];
   }
 
-  const rolling20 = mergedCounts.map((_, i) => {
+  // Make the rolling line track the same quantity represented by the bars.
+  // For multi-keyword OR searches the stacked bars show the sum of each
+  // keyword's mentions, while mergedCounts is the adjacent-deduped combined
+  // total. Using mergedCounts there makes the rolling line look "wrong"
+  // relative to the bars.
+  const rollingSourceCounts = (isMultiKeyword && !isAnd)
+    ? mergedCounts.map((_, i) =>
+        barDatasets.reduce((sum, ds) => sum + Number(ds.data[i] ?? 0), 0)
+      )
+    : mergedCounts;
+
+  const rolling20 = rollingSourceCounts.map((_, i) => {
     const start = Math.max(0, i - 19);
-    const window = mergedCounts.slice(start, i + 1);
+    const window = rollingSourceCounts.slice(start, i + 1);
     return window.reduce((a, b) => a + b, 0) / window.length;
   });
 
   const lineDatasets = [
     {
-      label: "Rolling avg (20 eps)",
+      label: (isMultiKeyword && !isAnd)
+        ? "Rolling avg (20 eps, stacked total)"
+        : "Rolling avg (20 eps)",
       data: rolling20,
       type: "line",
       borderColor: "#ffd166",
