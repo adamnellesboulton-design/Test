@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import os
+import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -35,6 +36,17 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DB_PATH = Path(os.environ.get("DB_PATH", "jre_data.db"))
 db = Database(db_path=DB_PATH)
 VALID_MODES = {"or", "and"}
+INLINE_INDEX_MAX_FILES = int(os.environ.get("INLINE_INDEX_MAX_FILES", "1"))
+
+
+def _index_episodes_background(episode_ids: list[int]) -> None:
+    """Index uploaded episodes on a separate DB connection."""
+    bg_db = Database(db_path=DB_PATH)
+    try:
+        for episode_id in episode_ids:
+            index_episode(bg_db, episode_id)
+    finally:
+        bg_db.close()
 
 
 @app.errorhandler(HTTPException)
@@ -141,6 +153,8 @@ def api_upload():
 
     created = []
     errors  = []
+    deferred_episode_ids: list[int] = []
+    inline_index = len(files) <= INLINE_INDEX_MAX_FILES
 
     for i, f in enumerate(files):
         filename = f.filename or f"upload_{i+1}.txt"
@@ -167,31 +181,52 @@ def api_upload():
             errors.append({"filename": filename, "error": f"Parse error: {exc}"})
             continue
 
-        episode_id = db.insert_episode(
-            title=title,
-            transcript=segments,
-            episode_date=date,
-            filename=filename,
-            duration_seconds=duration,
-        )
+        try:
+            episode_id = db.insert_episode(
+                title=title,
+                transcript=segments,
+                episode_date=date,
+                filename=filename,
+                duration_seconds=duration,
+            )
 
-        # Index immediately (fast for a single episode)
-        index_episode(db, episode_id)
+            # For larger batches we defer indexing to a background thread to
+            # avoid request timeouts that can surface as generic HTTP 500 pages.
+            indexed = index_episode(db, episode_id) if inline_index else False
+            if not inline_index:
+                deferred_episode_ids.append(episode_id)
+            ep = db.get_episode(episode_id)
+            if ep is None:
+                raise RuntimeError("Episode saved but could not be reloaded")
 
-        ep = db.get_episode(episode_id)
-        created.append({
-            "id":               ep["id"],
-            "title":            ep["title"],
-            "episode_date":     ep["episode_date"],
-            "episode_number":   ep["episode_number"],
-            "filename":         ep["filename"],
-            "uploaded_at":      ep["uploaded_at"],
-            "duration_seconds": ep["duration_seconds"],
-            "segment_count":    len(segments),
-            "indexed":          True,
-        })
+            created.append({
+                "id":               ep["id"],
+                "title":            ep["title"],
+                "episode_date":     ep["episode_date"],
+                "episode_number":   ep["episode_number"],
+                "filename":         ep["filename"],
+                "uploaded_at":      ep["uploaded_at"],
+                "duration_seconds": ep["duration_seconds"],
+                "segment_count":    len(segments),
+                "indexed":          bool(indexed),
+            })
+        except Exception as exc:
+            app.logger.exception("Failed to store/index uploaded transcript", exc_info=exc)
+            errors.append({"filename": filename, "error": f"Storage/index error: {exc}"})
+            continue
 
-    return jsonify({"created": created, "errors": errors})
+    if deferred_episode_ids:
+        threading.Thread(
+            target=_index_episodes_background,
+            args=(deferred_episode_ids,),
+            daemon=True,
+        ).start()
+
+    return jsonify({
+        "created": created,
+        "errors": errors,
+        "indexing_deferred": bool(deferred_episode_ids),
+    })
 
 
 # ── API: delete episode ───────────────────────────────────────────────────────
