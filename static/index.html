@@ -1892,42 +1892,8 @@ function renderTable(episodes, kwStyles = {}) {
   tbody.innerHTML = episodes.map(ep => {
     const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
     const badgeStyle = getStyleForKeyword(currentKeyword || "Mentions", kwStyles, 0);
-    const countClamped = Math.max(1, Math.min(100, Number(ep.count) || 0));
-    const satRatio = (countClamped - 1) / 99;
-    const { h, l } = rgbToHsl(...Object.values(hexToRgb(badgeStyle.base)));
-    const sat = Math.round(8 + satRatio * 92);
-    const flatBgColor = `hsl(${h}, ${sat}%, ${Math.max(20, Math.min(72, l))}%)`;
-
-    let dynamicBg = flatBgColor;
-    let dynamicBorder = badgeStyle.base;
-    if (perKeywordEpisodeMaps.length > 1 && ep.count > 0) {
-      const parts = perKeywordEpisodeMaps
-        .map(({ keyword, idxMap }, idx) => {
-          const value = idxMap[ep.episode_id] || 0;
-          const style = getStyleForKeyword(keyword, kwStyles, idx);
-          return { value, color: style.base };
-        })
-        .filter(part => part.value > 0)
-        .sort((a, b) => b.value - a.value);
-
-      const total = parts.reduce((sum, part) => sum + part.value, 0);
-      if (total > 0) {
-        let cursor = 0;
-        const stops = parts.map((part, idx) => {
-          const start = cursor;
-          cursor += (part.value / total) * 100;
-          const end = idx === parts.length - 1 ? 100 : cursor;
-          const s = start.toFixed(2);
-          const e = end.toFixed(2);
-          return `${part.color} ${s}%, ${part.color} ${e}%`;
-        });
-        dynamicBg = `linear-gradient(90deg, ${stops.join(', ')})`;
-        dynamicBorder = parts[0].color;
-      }
-    }
-
     const badge = ep.count > 0
-      ? `<span class="count-badge dynamic" style="background:${dynamicBg};border-color:${dynamicBorder};color:${badgeStyle.line};box-shadow:0 0 10px ${badgeStyle.glow};">${ep.count}</span>`
+      ? `<span class="count-badge dynamic" style="background:${badgeStyle.barBg};border-color:${badgeStyle.base};color:${badgeStyle.line};box-shadow:0 0 10px ${badgeStyle.glow};">${ep.count}</span>`
       : `<span class="count-badge zero">0</span>`;
     const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
     const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
