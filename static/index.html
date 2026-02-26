@@ -1653,8 +1653,7 @@ async function loadMinutes(episodeId) {
     const pk      = d.per_keyword;
     const isAndMode = currentData && currentData.mode === "and";
     const isMultiKeyword = pk && pk.length > 1;
-    // AND mode can stack cleanly. OR mode is adjacency-deduped, so we show
-    // color-separated component bars plus a deduped total line.
+    // AND mode can stack cleanly.
     const stacked = !!(isMultiKeyword && isAndMode);
 
     let barDatasets;
@@ -1684,20 +1683,6 @@ async function loadMinutes(episodeId) {
       { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
         type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
     ];
-
-    if (isMultiKeyword && !isAndMode) {
-      lineDatasets.push({
-        label: "Combined (deduped)",
-        data: counts,
-        type: "line",
-        borderColor: "#ffffff",
-        backgroundColor: "#ffffff",
-        borderWidth: 1.8,
-        pointRadius: 0,
-        tension: 0.2,
-        order: 0,
-      });
-    }
 
     minuteChart = new Chart(ctx, {
       type: "bar",
