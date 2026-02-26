@@ -190,8 +190,11 @@ def api_upload():
                 duration_seconds=duration,
             )
 
-            # Index immediately (fast for a single episode)
-            indexed = index_episode(db, episode_id)
+            if inline_index:
+                indexed = index_episode(db, episode_id)
+            else:
+                indexed = False
+                deferred_episode_ids.append(episode_id)
             ep = db.get_episode(episode_id)
             if ep is None:
                 raise RuntimeError("Episode saved but could not be reloaded")
@@ -211,6 +214,13 @@ def api_upload():
             app.logger.exception("Failed to store/index uploaded transcript", exc_info=exc)
             errors.append({"filename": filename, "error": f"Storage/index error: {exc}"})
             continue
+
+    if deferred_episode_ids:
+        threading.Thread(
+            target=_index_episodes_background,
+            args=(deferred_episode_ids,),
+            daemon=True,
+        ).start()
 
     return jsonify({
         "created": created,

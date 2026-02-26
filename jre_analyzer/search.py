@@ -65,6 +65,11 @@ _FALSE_COMPOUNDS: frozenset[tuple[str, str]] = frozenset([
     ("fundraise", "fun"), ("fundraises", "fun"),
     ("fundraised", "fun"), ("fundraising", "fun"),
     ("fundraiser", "fun"), ("fundraisers", "fun"),
+
+    # "edge" should not match the "-ledge" family.
+    ("knowledge", "edge"), ("acknowledge", "edge"),
+    ("acknowledged", "edge"), ("acknowledges", "edge"),
+    ("acknowledging", "edge"),
 ])
 
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
@@ -151,13 +156,11 @@ def is_valid_match(word: str, term: str) -> bool:
 
     # 2. Plural
     # +es always accepted (asses, churches, …).
-    # +s only accepted when the term does NOT end in "e": adding "s" to an
-    # "e"-ending word produces a 3rd-person-singular verb form (collapses,
-    # breathes, …), not a plural.  Genuine "e"-word plurals already end in
-    # "es" (horses, races) and are caught by the +es branch above.
+    # +s accepted as the regular plural form, including terms ending in "e"
+    # (edge→edges, stage→stages, phrase→phrases).
     if word == term + "es":
         return True
-    if word == term + "s" and not term.endswith("e"):
+    if word == term + "s":
         return True
 
     # 3. Compound
