@@ -77,6 +77,7 @@ _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
     "ed",
     "er", "ers",
     "est",
+    "ier", "iest",
     "en", "ens",
     "ward", "wards",
     "wise",
