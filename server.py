@@ -17,7 +17,6 @@ import os
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
-from werkzeug.exceptions import HTTPException
 
 from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
@@ -35,21 +34,6 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DB_PATH = Path(os.environ.get("DB_PATH", "jre_data.db"))
 db = Database(db_path=DB_PATH)
 VALID_MODES = {"or", "and"}
-
-
-@app.errorhandler(HTTPException)
-def handle_http_exception(exc: HTTPException):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": exc.description or exc.name}), exc.code
-    return exc
-
-
-@app.errorhandler(Exception)
-def handle_unexpected_exception(exc: Exception):
-    if request.path.startswith("/api/"):
-        app.logger.exception("Unhandled API error", exc_info=exc)
-        return jsonify({"error": "Internal server error"}), 500
-    raise exc
 
 
 def _parse_mode(raw_mode: str) -> str | None:
