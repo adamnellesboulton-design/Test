@@ -1608,10 +1608,23 @@ function getKeywords() {
   return chips.filter(Boolean);
 }
 
+function normalizeKeywords(keywords = []) {
+  const seen = new Set();
+  return keywords
+    .map(k => String(k || "").trim())
+    .filter(Boolean)
+    .filter(k => {
+      const lower = k.toLowerCase();
+      if (seen.has(lower)) return false;
+      seen.add(lower);
+      return true;
+    });
+}
+
 // Search
 // ────────────────────────────────────────────────────────────
 async function doSearch() {
-  const keywords = getKeywords();
+  const keywords = normalizeKeywords(getKeywords());
   if (!keywords.length) { toast("Enter at least one keyword", "error"); return; }
   if (allEpisodes.length === 0) { toast("Upload transcripts first", "error"); return; }
 
@@ -1637,11 +1650,11 @@ async function doSearch() {
     let url = `/api/search?keyword=${encodeURIComponent(kw)}&lookback=${lookback}&mode=${mode}`;
     if (episodeIdsParam) url += `&episode_ids=${episodeIdsParam}`;
 
-    const r = await fetch(url);
+    const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
     const data = await r.json();
     currentData = data;
-    renderResults(data);
+    renderResults(data, keywords);
     document.getElementById("results").classList.add("visible");
     document.getElementById("no-data-msg").classList.remove("visible");
   } catch (e) {
@@ -1655,14 +1668,17 @@ async function doSearch() {
 // ────────────────────────────────────────────────────────────
 // Render
 // ────────────────────────────────────────────────────────────
-function renderResults(data) {
+function renderResults(data, searchedKeywords = []) {
   const eps  = data.episodes;
   const avgs = data.averages;
   const fv   = data.fair_value;
 
   const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
   const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
-  currentKeywordStyles = buildKeywordStyles(data.per_keyword || []);
+  const styleSeedKeywords = normalizeKeywords((searchedKeywords && searchedKeywords.length)
+    ? searchedKeywords
+    : (data.per_keyword || []).map(kw => kw.keyword));
+  currentKeywordStyles = buildKeywordStyles(styleSeedKeywords.map(keyword => ({ keyword })));
 
   // In multi-keyword OR mode, aggregate cards/pills should use the same
   // adjacent-deduped merged count shown in the episode table.
