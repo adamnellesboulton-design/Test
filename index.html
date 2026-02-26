@@ -394,24 +394,6 @@ tbody td { padding: 9px 12px; }
       <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
     </div>
 
-    <div class="card user-hidden" aria-hidden="true">
-      <div class="card-title">Episode history — click a row for per-minute view</div>
-      <div class="table-wrap">
-        <table id="ep-table">
-          <thead>
-            <tr>
-              <th>Episode</th>
-              <th>Date</th>
-              <th>Mentions</th>
-              <th>Per min</th>
-              <th>Title</th>
-            </tr>
-          </thead>
-          <tbody id="ep-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
   </div>
 </main>
 </div>
@@ -850,6 +832,7 @@ function renderFVGrid(fv) {
 // ── Episode table ─────────────────────────────────────────────
 function renderTable(episodes) {
   const tbody = document.getElementById("ep-tbody");
+  if (!tbody) return;
   tbody.innerHTML = episodes.map(ep => {
     const badge = ep.count > 0
       ? `<span class="count-badge">${ep.count}</span>`
