@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
+from werkzeug.exceptions import HTTPException
 
 from jre_analyzer.database import Database
 from jre_analyzer.analyzer import index_episode, index_all
@@ -34,6 +35,21 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DB_PATH = Path(os.environ.get("DB_PATH", "jre_data.db"))
 db = Database(db_path=DB_PATH)
 VALID_MODES = {"or", "and"}
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(exc: HTTPException):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": exc.description or exc.name}), exc.code
+    return exc
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(exc: Exception):
+    if request.path.startswith("/api/"):
+        app.logger.exception("Unhandled API error", exc_info=exc)
+        return jsonify({"error": "Internal server error"}), 500
+    raise exc
 
 
 def _parse_mode(raw_mode: str) -> str | None:
@@ -398,7 +414,12 @@ def api_minutes():
     if not merged_counts:
         return jsonify({"episode_id": eid, "keyword": keyword, "minutes": [], "per_keyword": per_keyword_minutes})
 
-    full_range = list(range(min(merged_counts), max(merged_counts) + 1))
+    # Always return a full timeline from t=0 through episode duration so
+    # minute charts cover the full episode, not only up to last mention.
+    duration_seconds = (ep.duration_seconds if ep else 0) or 0
+    duration_last_minute = max(0, math.ceil(duration_seconds / 60) - 1)
+    max_minute = max(max(merged_counts), duration_last_minute)
+    full_range = list(range(0, max_minute + 1))
 
     return jsonify({
         "episode_id":  eid,
