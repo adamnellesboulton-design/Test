@@ -1916,15 +1916,6 @@ function saturationBlue(absValue, maxAbsValue) {
   return `hsl(208, ${sat}%, 72%)`;
 }
 
-function saturationForColor(baseHex, absValue, maxAbsValue) {
-  const { r, g, b } = hexToRgb(baseHex);
-  const { h, l } = rgbToHsl(r, g, b);
-  const boundedMax = Math.max(1, Number(maxAbsValue) || 1);
-  const ratio = Math.max(0, Math.min(1, Math.abs(Number(absValue) || 0) / boundedMax));
-  const sat = Math.round(ratio * 100);
-  return `hsl(${h}, ${sat}%, ${Math.max(l, 60)}%)`;
-}
-
 
 function getPrimaryKeywordStyle(perKeyword = [], kwStyles = {}) {
   const firstKeyword = perKeyword && perKeyword[0] ? perKeyword[0].keyword : (currentKeyword || "Mentions");
@@ -1936,9 +1927,7 @@ function renderFVGrid(fv, badgeStyle = null) {
   document.getElementById("fv-grid").innerHTML = fv.buckets.map(b => {
     const pct = Number(b.pct) || 0;
     const cls = pct >= 30 ? "high" : pct >= 10 ? "medium" : "low";
-    const evTone = (badgeStyle && badgeStyle.base)
-      ? saturationForColor(badgeStyle.base, pct, maxPct)
-      : saturationBlue(pct, maxPct);
+    const evTone = (badgeStyle && badgeStyle.line) || saturationBlue(pct, maxPct);
     return `<div class="fv-cell">
       <div class="fv-n">≥ ${b.label} mention${b.n !== 1 ? "s" : ""}</div>
       <div class="fv-pct ${cls}" style="color:${evTone}">${pct.toFixed(1)}%</div>
