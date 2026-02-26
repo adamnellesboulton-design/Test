@@ -1276,14 +1276,16 @@ function initApp() {
   document.getElementById("search-input").addEventListener("keydown", e => {
     const inp = e.target;
     if (e.key === "Enter") {
-      if (inp.value.trim()) { addKwTag(inp.value); }
-      else { doSearch(); }
+      e.preventDefault();
+      if (inp.value.trim()) addKwTag(inp.value);
+      doSearch();
     } else if (e.key === ",") {
       e.preventDefault();
       addKwTag(inp.value);
     } else if (e.key === "Backspace" && inp.value === "") {
       const chips = document.querySelectorAll(".kw-tag");
       if (chips.length) chips[chips.length - 1].remove();
+      syncKeywordTagStyles();
       updateSearchPlaceholder();
     }
   });
@@ -1643,12 +1645,26 @@ function addKwTag(raw) {
     chip.innerHTML = `<span style="color:${kwStyle.line}">${escHtml(kw)}</span> <button aria-label="remove">×</button>`;
     chip.querySelector("button").addEventListener("click", () => {
       chip.remove();
+      syncKeywordTagStyles();
       updateSearchPlaceholder();
     });
     wrap.insertBefore(chip, inp);
   });
   inp.value = "";
+  syncKeywordTagStyles();
   updateSearchPlaceholder();
+}
+
+function syncKeywordTagStyles() {
+  const chips = [...document.querySelectorAll(".kw-tag")];
+  const kwStyles = buildKeywordStyles(chips.map(chip => ({ keyword: chip.dataset.kw })));
+  chips.forEach((chip, idx) => {
+    const style = getStyleForKeyword(chip.dataset.kw, kwStyles, idx);
+    chip.style.borderColor = style.base;
+    chip.style.boxShadow = `0 0 10px ${style.glow}`;
+    const label = chip.querySelector("span");
+    if (label) label.style.color = style.line;
+  });
 }
 
 function getKeywords() {
