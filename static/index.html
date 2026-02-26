@@ -1338,15 +1338,54 @@ function renderResults(data) {
   const avgs = data.averages;
   const fv   = data.fair_value;
 
+  const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
+  const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
+
+  const avgFrom = (vals, n) => {
+    const win = vals.slice(0, n);
+    if (!win.length) return null;
+    return win.reduce((s, v) => s + Number(v || 0), 0) / win.length;
+  };
+
+  // In multi-keyword OR mode, cards/pills should reflect the same stacked
+  // total shown in the trend bars (sum of keyword mentions), not the
+  // adjacent-deduped merged count.
+  let displayAverages = avgs;
+  let displayAveragesPerMin = data.averages_per_min;
+  if (isMultiOr) {
+    const countMaps = (data.per_keyword || []).map(kw =>
+      Object.fromEntries((kw.episodes || []).map(e => [e.episode_id, Number(e.count || 0)]))
+    );
+    const combinedCounts = eps.map(ep =>
+      countMaps.reduce((sum, cmap) => sum + Number(cmap[ep.episode_id] || 0), 0)
+    );
+    const combinedPm = combinedCounts.map((c, i) => {
+      const dur = Number(eps[i]?.duration_seconds || 0);
+      return dur > 0 ? c / (dur / 60) : 0;
+    });
+    displayAverages = {
+      last_1: avgFrom(combinedCounts, 1),
+      last_5: avgFrom(combinedCounts, 5),
+      last_20: avgFrom(combinedCounts, 20),
+      last_50: avgFrom(combinedCounts, 50),
+      last_100: avgFrom(combinedCounts, 100),
+    };
+    displayAveragesPerMin = {
+      last_1: avgFrom(combinedPm, 1),
+      last_5: avgFrom(combinedPm, 5),
+      last_20: avgFrom(combinedPm, 20),
+      last_50: avgFrom(combinedPm, 50),
+      last_100: avgFrom(combinedPm, 100),
+    };
+  }
+
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
-  document.getElementById("stat-avg1").textContent     = fmt(avgs.last_1);
-  document.getElementById("stat-avg20").textContent    = fmt(avgs.last_20);
+  document.getElementById("stat-avg1").textContent     = fmt(displayAverages.last_1);
+  document.getElementById("stat-avg20").textContent    = fmt(displayAverages.last_20);
 
   // Average pills
-  const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
-  const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
 
   const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
   const makePills = (a, apm) => {
@@ -1368,8 +1407,13 @@ function renderResults(data) {
 
   let avgsHtml;
   if (isMultiOr) {
-    // OR multi-keyword: one pill row per keyword
-    avgsHtml = (data.per_keyword || []).map(kw =>
+    // OR multi-keyword: show combined stacked total + one row per keyword.
+    const combinedBlock =
+      `<div class="avg-kw-block">
+         <div class="avg-kw-label">Combined (stacked total)</div>
+         <div class="avgs-row">${makePills(displayAverages, displayAveragesPerMin)}</div>
+       </div>`;
+    avgsHtml = combinedBlock + (data.per_keyword || []).map(kw =>
       `<div class="avg-kw-block">
          <div class="avg-kw-label">${escHtml(kw.keyword)}</div>
          <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
