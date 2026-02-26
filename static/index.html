@@ -6,31 +6,30 @@
 <title>Aero Transcript Analyzer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg:       #05070f;
-  --surface:  #0d1324;
-  --card:     #101b31;
-  --border:   #49b8ff;
-  --accent:   #00ff66;
-  --accent2:  #7ae0ff;
-  --gold:     #5dc3ff;
-  --green:    #00ff9f;
-  --text:     #d4f6ff;
-  --muted:    #87a9c7;
+  --bg:       #05070d;
+  --surface:  #101826;
+  --card:     #131d2d;
+  --border:   #2b3f59;
+  --accent:   #4dd5a9;
+  --accent2:  #82bdfc;
+  --gold:     #86c5ff;
+  --green:    #49d79b;
+  --text:     #eaf2ff;
+  --muted:    #9cb0c8;
   --radius:   0px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: 'VT323', 'Courier New', monospace;
-  letter-spacing: .02em;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0;
   background:
-    repeating-linear-gradient(0deg, rgba(70,255,149,.04), rgba(70,255,149,.04) 1px, transparent 1px, transparent 3px),
-    radial-gradient(1000px 540px at 10% -10%, rgba(107,192,255,.38), transparent 58%),
-    radial-gradient(980px 640px at 90% -5%, rgba(0,255,102,.12), transparent 64%),
-    linear-gradient(160deg, #04050b 0%, #090f20 42%, #060a17 100%);
+    radial-gradient(1000px 540px at 10% -10%, rgba(84,140,227,.16), transparent 58%),
+    radial-gradient(980px 640px at 90% -5%, rgba(71,212,160,.08), transparent 64%),
+    linear-gradient(160deg, #03050a 0%, #070c14 42%, #050910 100%);
   color: var(--text);
   min-height: 100vh;
 }
@@ -39,7 +38,7 @@ body {
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
 header {
-  background: linear-gradient(180deg, #294f89, #12284c 58%, #0b1e38);
+  background: linear-gradient(180deg, #1f3552, #15263f 58%, #0f1d31);
   border-bottom: 2px solid var(--border);
   box-shadow: 0 0 0 2px rgba(0,0,0,.75), inset 0 0 0 2px rgba(196,229,255,.2), 0 12px 24px rgba(0,0,0,.45);
   padding: 16px 24px;
@@ -48,7 +47,7 @@ header {
   gap: 20px;
   flex-wrap: wrap;
 }
-.logo { font-family: 'Press Start 2P', monospace; font-size: .95rem; font-weight: 400; color: var(--accent); white-space: nowrap; text-shadow: 0 0 10px rgba(0,255,102,.8), 0 0 20px rgba(0,255,102,.35); }
+.logo { font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
 .logo span { color: var(--text); }
 
 .search-bar {
@@ -66,8 +65,8 @@ header {
   border-radius: var(--radius);
   overflow: hidden;
   flex-shrink: 0;
-  font-size: .78rem;
-  font-weight: 600;
+  font-size: .8rem;
+  font-weight: 500;
 }
 .mode-toggle button {
   padding: 5px 10px;
@@ -116,9 +115,9 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: linear-gradient(180deg, #52d3ff, #2c7bff);
-  color: #effcff;
-  border: 1px solid #8de8ff;
+  background: linear-gradient(180deg, #3f648b, #2d4a6d);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 0;
   padding: 2px 6px 2px 9px;
   font-size: .82rem;
@@ -139,23 +138,23 @@ header {
 
 .btn {
   padding: 10px 20px;
-  border: 2px solid #9ed8ff;
+  border: 2px solid var(--border);
   border-radius: var(--radius);
   font-size: .85rem;
-  font-weight: 400;
-  font-family: 'Press Start 2P', monospace;
+  font-weight: 600;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   cursor: pointer;
   transition: opacity .15s, transform .1s, filter .15s;
-  text-transform: uppercase;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.65), 0 0 14px rgba(54,156,255,.25);
+  text-transform: none;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.12), inset -1px -1px 0 rgba(0,0,0,.45), 0 0 14px rgba(54,156,255,.18);
 }
 .btn:hover { filter: brightness(1.08); }
 .btn:active { transform: translateY(1px); box-shadow: inset -1px -1px 0 rgba(255,255,255,.2), inset 1px 1px 0 rgba(0,0,0,.75); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-primary   { background: linear-gradient(180deg, #00ff66, #00bd4f); color: #02150a; }
-.btn-secondary { background: linear-gradient(180deg, #66a9ff, #3f6fc4 65%, #31579b); color: #ecf7ff; }
-.btn-blue      { background: linear-gradient(180deg, #8bf0ff, #4fa4ff); color: #06213c; }
-.btn-danger    { background: linear-gradient(180deg, #2e0f21, #210817); color: #ff5da0; border-color: #ff5da0; font-size: .8rem; padding: 5px 10px; }
+.btn-primary   { background: linear-gradient(180deg, #4dcfa4, #2ca27a); color: #04140d; }
+.btn-secondary { background: linear-gradient(180deg, #5f8dc4, #446b9a 65%, #355378); color: #e7f1ff; }
+.btn-blue      { background: linear-gradient(180deg, #78b6ee, #4e7fb4); color: #06182a; }
+.btn-danger    { background: linear-gradient(180deg, #3c2332, #2a1724); color: #f0a8c7; border-color: #8c5e75; font-size: .8rem; padding: 5px 10px; }
 .btn-sm        { padding: 6px 12px; font-size: .8rem; }
 
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -175,7 +174,7 @@ header {
   width: 320px;
   min-width: 280px;
   max-width: 380px;
-  background: linear-gradient(180deg, rgba(44,78,130,.82), rgba(14,34,61,.92));
+  background: linear-gradient(180deg, rgba(35,58,87,.86), rgba(14,30,50,.94));
   border-right: 2px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -366,7 +365,7 @@ header {
 .help-kv .k {
   font-family: monospace; font-size: .82rem;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 4px; padding: 1px 7px;
+  border-radius: var(--radius); padding: 1px 7px;
   color: var(--accent2); white-space: nowrap; align-self: start;
 }
 .help-kv .v { font-size: .85rem; color: var(--text); line-height: 1.6; align-self: center; }
@@ -437,7 +436,7 @@ header {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 6px 10px;
   color: var(--text);
   font-size: .82rem;
@@ -460,13 +459,13 @@ header {
   overflow-y: auto;
   min-width: 0;
   background:
-    radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.15), transparent 56%),
-    repeating-linear-gradient(90deg, rgba(121,198,255,.05), rgba(121,198,255,.05) 1px, transparent 1px, transparent 5px);
+    radial-gradient(720px 480px at 10% -5%, rgba(79,214,255,.08), transparent 56%),
+    linear-gradient(180deg, rgba(7,14,24,.76), rgba(6,11,20,.88));
 }
 
 /* ── Cards ── */
 .card {
-  background: linear-gradient(180deg, rgba(44,82,139,.72), rgba(11,24,45,.9));
+  background: linear-gradient(180deg, rgba(33,57,85,.82), rgba(12,23,38,.92));
   border: 2px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
@@ -485,7 +484,7 @@ header {
 /* ── Stats row ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card {
-  background: linear-gradient(180deg, rgba(39,78,133,.7), rgba(17,39,69,.88));
+  background: linear-gradient(180deg, rgba(36,62,92,.74), rgba(15,31,52,.9));
   border: 2px solid rgba(113,194,255,.9);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -570,13 +569,13 @@ header {
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 thead th {
-  background: linear-gradient(180deg, rgba(80,133,201,.95), rgba(38,79,134,.95));
+  background: linear-gradient(180deg, rgba(59,95,138,.95), rgba(37,62,92,.95));
   padding: 10px 12px;
   text-align: left;
   font-size: .75rem;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: #d9f5ff;
+  color: var(--text);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -590,8 +589,8 @@ tbody tr.selected { background: rgba(0,255,102,.12); }
 tbody td { padding: 9px 12px; }
 .count-badge {
   display: inline-block;
-  background: #00dd61;
-  color: #03160d;
+  background: #43b98f;
+  color: #071a14;
   border-radius: 0;
   padding: 1px 7px;
   font-weight: 700;
@@ -625,7 +624,7 @@ tbody td { padding: 9px 12px; }
   display: inline-block;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius);
   padding: 3px 10px;
   font-size: .75rem;
   color: var(--accent2);
@@ -652,10 +651,10 @@ tbody td { padding: 9px 12px; }
   margin-right: 8px;
   flex-shrink: 0;
 }
-.ctx-text { color: var(--text-secondary, #ccc); }
+.ctx-text { color: var(--text-secondary, #c7d3e5); }
 .ctx-match {
   background: rgba(0,255,102,.2);
-  color: #69ffad;
+  color: var(--accent);
   border-radius: 0;
   padding: 0 3px;
   font-weight: 600;
@@ -1028,7 +1027,7 @@ let currentData   = null;
 let currentKeyword = "";
 
 // Colour palette for multi-keyword charts (stacked bars)
-const KW_COLORS = ["#e94560","#a855f7","#f97316","#ec4899","#3b82f6","#14b8a6","#eab308"];
+const KW_COLORS = ["#82bdfc","#5f8dc4","#4dd5a9","#6ea0d5","#86c5ff","#49d79b","#9cb0c8"];
 let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
@@ -1599,8 +1598,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
     barDatasets = [{
       label, data: mergedCounts,
-      backgroundColor: mergedCounts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
-      borderColor:     mergedCounts.map(c => c > 0 ? col       : "#2a2a4a"),
+      backgroundColor: mergedCounts.map(c => c > 0 ? col + "cc" : "#243449"),
+      borderColor:     mergedCounts.map(c => c > 0 ? col       : "#243449"),
       borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
     }];
   }
@@ -1620,8 +1619,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       label: "Rolling avg (20 eps)",
       data: rolling20,
       type: "line",
-      borderColor: "#ffd166",
-      backgroundColor: "#ffd166",
+      borderColor: "#86c5ff",
+      backgroundColor: "#86c5ff",
       borderWidth: 2,
       pointRadius: 0,
       tension: 0.25,
@@ -1637,7 +1636,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        legend: { labels: { color: "#b4c2d4", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
         tooltip: {
           callbacks: {
             title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
@@ -1646,8 +1645,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         }
       },
       scales: {
-        x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
-        y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
+        x: { ticks: { color: "#a6b8cf", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1665,7 +1664,7 @@ function renderFVChart(fv, pkFv) {
   // OR multi-kw mode: one grouped bar per keyword.
   // Single keyword: single bar.
   const isAndMode = pkFv === null;
-  const AND_COLOR = "#06d6a0";
+  const AND_COLOR = "#4dd5a9";
 
   const datasets = multiKw
     ? pkFv.map((kw, i) => {
@@ -1692,12 +1691,12 @@ function renderFVChart(fv, pkFv) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: multiKw || isAndMode, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        legend: { display: multiKw || isAndMode, labels: { color: "#b4c2d4", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
-        x: { ticks: { color: "#888" }, grid: { color: "#22223a" } },
-        y: { ticks: { color: "#888", callback: v => v + "%" }, grid: { color: "#22223a" }, beginAtZero: true, max: 100 }
+        x: { ticks: { color: "#a6b8cf" }, grid: { display: false } },
+        y: { ticks: { color: "#a6b8cf", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -1802,7 +1801,7 @@ async function loadMinutes(episodeId) {
 
     const lineDatasets = [
       { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
-        type: "line", borderColor: "#ffd166", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+        type: "line", borderColor: "#86c5ff", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
     ];
 
     minuteChart = new Chart(ctx, {
@@ -1813,10 +1812,10 @@ async function loadMinutes(episodeId) {
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
+        plugins: { legend: { labels: { color: "#b4c2d4", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#888", font: { size: 10 }, maxTicksLimit: 30 }, grid: { color: "#22223a" }, stacked },
-          y: { ticks: { color: "#888" }, grid: { color: "#22223a" }, beginAtZero: true, stacked }
+          x: { ticks: { color: "#a6b8cf", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
     });
