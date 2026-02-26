@@ -1889,6 +1889,12 @@ function renderContextMatch(matchText, kwStyles = {}, keyword = "") {
 // ── Episode table ─────────────────────────────────────────────
 function renderTable(episodes, kwStyles = {}) {
   const tbody = document.getElementById("ep-tbody");
+  const pk = (currentData && currentData.per_keyword) || [];
+  const perKeywordEpisodeMaps = pk.map(kw => ({
+    keyword: kw.keyword,
+    idxMap: Object.fromEntries((kw.episodes || []).map(e => [e.episode_id, Number(e.count) || 0])),
+  }));
+
   tbody.innerHTML = episodes.map(ep => {
     const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
     const badgeStyle = getStyleForKeyword(currentKeyword || "Mentions", kwStyles, 0);
