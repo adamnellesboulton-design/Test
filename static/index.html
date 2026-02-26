@@ -978,7 +978,7 @@ document.addEventListener("DOMContentLoaded", () => {
   dz.addEventListener("drop", e => {
     e.preventDefault();
     dz.classList.remove("drag-over");
-    addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith(".txt")));
+    addFiles(Array.from(e.dataTransfer.files).filter(f => /\.txt$/i.test(f.name)));
   });
 });
 
@@ -1125,7 +1125,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeHelp();
 
 function addFiles(files) {
   files.forEach(f => {
-    if (!f.name.endsWith(".txt")) return;
+    if (!/\.txt$/i.test(f.name)) return;
     queuedFiles.push({ file: f, title: "" });
   });
   renderQueuedFiles();
