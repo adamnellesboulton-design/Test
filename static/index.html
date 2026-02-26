@@ -1408,6 +1408,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   // Stack all multi-keyword histograms so component totals are visible
   // directly inside one bar per episode.
   const stacked = !!isMultiKeyword;
+  // Stack only in AND mode. In OR mode, show grouped component bars and
+  // a deduped merged line so the final combined count remains visible.
+  const stacked = !!(isMultiKeyword && isAnd);
 
   let barDatasets;
   if (isMultiKeyword) {
@@ -1427,6 +1430,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         type: "bar",
         order: 2,
         stack: "kw",
+        stack: stacked ? "kw" : undefined,
       };
     });
   } else {
@@ -1460,6 +1464,19 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     }
   ];
 
+  if (isMultiKeyword && !isAnd) {
+    lineDatasets.push({
+      label: "Combined (deduped)",
+      data: mergedCounts,
+      type: "line",
+      borderColor: "#ffffff",
+      backgroundColor: "#ffffff",
+      borderWidth: 1.8,
+      pointRadius: 0,
+      tension: 0.2,
+      order: 1,
+    });
+  }
 
   trendChart = new Chart(ctx, {
     data: { labels, datasets: [...barDatasets, ...lineDatasets] },
@@ -1622,6 +1639,7 @@ async function loadMinutes(episodeId) {
           borderRadius: 3,
           order: 2,
           stack: "kw",
+          stack: stacked ? "kw" : undefined,
         };
       });
     } else {
