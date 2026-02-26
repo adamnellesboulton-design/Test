@@ -284,6 +284,15 @@ def api_search():
         result = (intersect_results(keyword, individual_results) if mode == "and"
                   else merge_results(keyword, individual_results))
 
+    # Badge metrics (rolling averages + FV) should reflect overall source
+    # mentions across all keywords, not adjacency-deduped runs.
+    # Keep `result` for episode/table/chart counting semantics.
+    badge_result = (
+        intersect_results(keyword, individual_results)
+        if mode == "and"
+        else merge_results(keyword, individual_results)
+    ) if len(terms) > 1 else result
+
     def _r(v, digits=4):
         return round(v, digits) if v is not None else None
 
@@ -301,23 +310,23 @@ def api_search():
     ]
 
     averages = {
-        "last_1":   result.avg_last_1,
-        "last_5":   result.avg_last_5,
-        "last_20":  result.avg_last_20,
-        "last_50":  result.avg_last_50,
-        "last_100": result.avg_last_100,
+        "last_1":   badge_result.avg_last_1,
+        "last_5":   badge_result.avg_last_5,
+        "last_20":  badge_result.avg_last_20,
+        "last_50":  badge_result.avg_last_50,
+        "last_100": badge_result.avg_last_100,
     }
 
     averages_per_min = {
-        "last_1":   _r(result.avg_pm_last_1),
-        "last_5":   _r(result.avg_pm_last_5),
-        "last_20":  _r(result.avg_pm_last_20),
-        "last_50":  _r(result.avg_pm_last_50),
-        "last_100": _r(result.avg_pm_last_100),
+        "last_1":   _r(badge_result.avg_pm_last_1),
+        "last_5":   _r(badge_result.avg_pm_last_5),
+        "last_20":  _r(badge_result.avg_pm_last_20),
+        "last_50":  _r(badge_result.avg_pm_last_50),
+        "last_100": _r(badge_result.avg_pm_last_100),
     }
 
-    fv_lookback = len(result.episodes) if lookback is None else lookback
-    fv      = calculate_fair_value(result, lookback=fv_lookback)
+    fv_lookback = len(badge_result.episodes) if lookback is None else lookback
+    fv      = calculate_fair_value(badge_result, lookback=fv_lookback)
     rec_pmf = recommended_pmf(fv)
     rec_sf  = recommended_sf(fv)
 
@@ -331,7 +340,7 @@ def api_search():
             else ("empirical" if fv.lookback_episodes >= 10 else "poisson")
         ),
         "pi_estimate":       round(fv.pi_estimate, 3) if fv.pi_estimate is not None else None,
-        "zero_fraction":     round(sum(1 for ep in result.episodes[:fv_lookback] if ep.count == 0) / max(fv.lookback_episodes, 1), 3),
+        "zero_fraction":     round(sum(1 for ep in badge_result.episodes[:fv_lookback] if ep.count == 0) / max(fv.lookback_episodes, 1), 3),
         "lookback_episodes": fv.lookback_episodes,
         "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [
