@@ -37,6 +37,43 @@ body {
   min-height: 100vh;
 }
 
+.password-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  padding: 20px;
+}
+.password-card {
+  width: 100%;
+  max-width: 420px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  padding: 20px;
+  display: grid;
+  gap: 10px;
+}
+.password-card h2 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: .8rem;
+  color: var(--accent);
+}
+.password-input {
+  width: 100%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+}
+.password-error {
+  min-height: 1.2em;
+  color: #ff6f6f;
+  font-size: .9rem;
+}
+
 /* ── Layout ── */
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
@@ -772,6 +809,15 @@ tbody td { padding: 9px 12px; }
 </style>
 </head>
 <body>
+<div class="password-gate" id="password-gate">
+  <form class="password-card" id="password-form">
+    <h2>Enter Password</h2>
+    <p style="color:var(--muted)">Access is protected.</p>
+    <input class="password-input" id="password-input" type="password" autocomplete="off" placeholder="Password" required />
+    <button class="btn btn-primary" type="submit">Unlock</button>
+    <div class="password-error" id="password-error"></div>
+  </form>
+</div>
 <div class="app">
 
 <!-- ── Header ── -->
@@ -1121,6 +1167,7 @@ let fvChart       = null;
 let minuteChart   = null;
 let queuedFiles   = [];   // [{file, title, date}]
 let desktopSidebarCollapsed = false;
+const APP_PASSWORD = "edge";
 const MOBILE_MEDIA_QUERY = "(max-width: 720px)";
 
 function isMobileView() {
@@ -1131,6 +1178,24 @@ function isMobileView() {
 // Boot
 // ────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  const passwordForm = document.getElementById("password-form");
+  passwordForm.addEventListener("submit", event => {
+    event.preventDefault();
+    const input = document.getElementById("password-input");
+    const error = document.getElementById("password-error");
+    if (input.value === APP_PASSWORD) {
+      document.getElementById("password-gate").style.display = "none";
+      initApp();
+      return;
+    }
+    error.textContent = "Incorrect password.";
+    input.value = "";
+    input.focus();
+  });
+  document.getElementById("password-input").focus();
+});
+
+function initApp() {
   loadEpisodes();
 
   document.getElementById("search-btn").addEventListener("click", doSearch);
@@ -1186,7 +1251,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dz.classList.remove("drag-over");
     addFiles(Array.from(e.dataTransfer.files).filter(f => /\.txt$/i.test(f.name)));
   });
-});
+}
 
 // ────────────────────────────────────────────────────────────
 // Load episodes from server
