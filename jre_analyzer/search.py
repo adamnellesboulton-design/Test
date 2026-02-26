@@ -83,6 +83,22 @@ _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
     "wise",
 ])
 
+# Colloquial/diminutive endings (often nouny/adjective forms) that should not
+# be treated as standalone compound tails when appended directly to a term.
+# e.g. fun + sies -> "funsies" (not a compound mention of "fun").
+_DIMINUTIVE_SUFFIXES: frozenset[str] = frozenset([
+    "y", "ie", "ies",
+])
+
+# Term-specific root/stem families that begin with the letters of a term but are
+# semantically unrelated and should never count as compounds.
+_FALSE_PREFIX_STEMS: dict[str, tuple[str, ...]] = {
+    "fun": (
+        "funn",       # funnel, funneling, funny, ...
+        "fund",       # fund, funding, fundraise, ...
+        "funct",      # function, functionality, ...
+    ),
+}
 
 def is_valid_match(word: str, term: str) -> bool:
     """
@@ -128,6 +144,11 @@ def is_valid_match(word: str, term: str) -> bool:
     if (word, term) in _FALSE_COMPOUNDS:
         return False
 
+    # 0b. Term-specific stem families that should not count as compounds.
+    for stem in _FALSE_PREFIX_STEMS.get(term, ()):
+        if word.startswith(stem):
+            return False
+
     # 1. Exact
     if word == term:
         return True
@@ -165,6 +186,14 @@ def is_valid_match(word: str, term: str) -> bool:
             return False
         # Doubled-consonant inflection (drug→drugged, run→running)
         if after[0] == term[-1] and after[1:] in _DERIVATIONAL_SUFFIXES:
+            return False
+        # Diminutive/colloquial inflections (fun→funsies, dog→doggie, ...)
+        # are not compounds.
+        if after[0] == term[-1] and after[1:] in _DIMINUTIVE_SUFFIXES:
+            return False
+        if after in _DIMINUTIVE_SUFFIXES:
+            return False
+        if after.startswith("s") and after[1:] in _DIMINUTIVE_SUFFIXES:
             return False
         if after in _DERIVATIONAL_SUFFIXES:
             return False
