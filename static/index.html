@@ -1717,7 +1717,12 @@ function renderResults(data) {
   const piSuffix = (fv.model === "zero-inflated" && fv.pi_estimate != null)
     ? `  π=${(fv.pi_estimate * 100).toFixed(0)}%`
     : "";
-  document.getElementById("fv-model-badge").textContent = modelLabel + piSuffix;
+  const primaryKeywordStyle = getPrimaryKeywordStyle(data.per_keyword, currentKeywordStyles);
+  const fvModelBadge = document.getElementById("fv-model-badge");
+  fvModelBadge.textContent = modelLabel + piSuffix;
+  fvModelBadge.style.borderColor = primaryKeywordStyle.base;
+  fvModelBadge.style.color = primaryKeywordStyle.line;
+  fvModelBadge.style.boxShadow = `0 0 10px ${primaryKeywordStyle.glow}`;
 
   // Update all card titles to reflect AND co-occurrence mode
   document.querySelector(".card-title[data-trend-title]").textContent =
@@ -1730,7 +1735,7 @@ function renderResults(data) {
   // In AND mode show the single merged FV bar (co-occurrence FV);
   // in OR mode show per-keyword grouped bars.
   renderFVChart(fv, isAnd ? null : data.per_keyword_fv, currentKeywordStyles);
-  renderFVGrid(fv);
+  renderFVGrid(fv, primaryKeywordStyle);
   renderTable(eps, currentKeywordStyles);
 
   document.getElementById("minute-panel").classList.remove("visible");
@@ -1911,12 +1916,18 @@ function saturationBlue(absValue, maxAbsValue) {
   return `hsl(208, ${sat}%, 72%)`;
 }
 
-function renderFVGrid(fv) {
+
+function getPrimaryKeywordStyle(perKeyword = [], kwStyles = {}) {
+  const firstKeyword = perKeyword && perKeyword[0] ? perKeyword[0].keyword : (currentKeyword || "Mentions");
+  return getStyleForKeyword(firstKeyword, kwStyles, 0);
+}
+
+function renderFVGrid(fv, badgeStyle = null) {
   const maxPct = Math.max(1, ...fv.buckets.map(b => Number(b.pct) || 0));
   document.getElementById("fv-grid").innerHTML = fv.buckets.map(b => {
     const pct = Number(b.pct) || 0;
     const cls = pct >= 30 ? "high" : pct >= 10 ? "medium" : "low";
-    const evTone = saturationBlue(pct, maxPct);
+    const evTone = (badgeStyle && badgeStyle.line) || saturationBlue(pct, maxPct);
     return `<div class="fv-cell">
       <div class="fv-n">≥ ${b.label} mention${b.n !== 1 ? "s" : ""}</div>
       <div class="fv-pct ${cls}" style="color:${evTone}">${pct.toFixed(1)}%</div>
