@@ -733,35 +733,9 @@ tbody td { padding: 9px 12px; }
 
   .main-cols { flex-direction: column; }
   .sidebar {
-    position: fixed;
-    left: 0;
-    top: 64px;
-    bottom: 0;
-    z-index: 40;
-    width: min(86vw, 340px);
-    min-width: min(86vw, 340px);
-    max-width: min(86vw, 340px);
-    border-right: 2px solid var(--border);
-    border-bottom: none;
-    transform: translateX(calc(-100% + 30px));
-    transition: transform .2s ease;
-    max-height: none;
+    display: none;
   }
-  .mobile-sidebar-open .sidebar { transform: translateX(0); }
-  .mobile-sidebar-toggle { display: block; }
-  .mobile-sidebar-open .mobile-sidebar-toggle { right: 0; }
-  .mobile-sidebar-open .mobile-sidebar-toggle .arr { transform: rotate(180deg); display: inline-block; }
-  .sidebar-rail-label { display: flex; }
-  .sidebar-header,
-  .select-all-row,
-  .episode-count,
-  .episode-list { display: none; }
-  .mobile-sidebar-open .sidebar-header,
-  .mobile-sidebar-open .select-all-row,
-  .mobile-sidebar-open .episode-count,
-  .mobile-sidebar-open .episode-list { display: flex; }
-  .mobile-sidebar-open .episode-list { display: block; }
-  .mobile-sidebar-open .sidebar-rail-label { display: none; }
+  .mobile-sidebar-toggle { display: none !important; }
   .content { padding: 14px; }
   .card { padding: 14px; margin-bottom: 14px; }
   .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -850,7 +824,7 @@ tbody td { padding: 9px 12px; }
       <div class="empty">
         <div class="icon">🔍</div>
         <h2 style="margin-bottom:10px">Upload transcripts to begin</h2>
-        <p style="color:var(--muted)">Click <strong>+ Upload</strong> in the sidebar to add .txt transcript files,<br>then search for any keyword.</p>
+        <p style="color:var(--muted)">Use desktop to upload .txt transcript files, then search for any keyword.</p>
       </div>
     </div>
 
@@ -1040,6 +1014,11 @@ let fvChart       = null;
 let minuteChart   = null;
 let queuedFiles   = [];   // [{file, title, date}]
 let desktopSidebarCollapsed = false;
+const MOBILE_MEDIA_QUERY = "(max-width: 720px)";
+
+function isMobileView() {
+  return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+}
 
 // ────────────────────────────────────────────────────────────
 // Boot
@@ -1136,8 +1115,9 @@ function initSidebarBehavior() {
   const mobileToggle = document.getElementById("mobile-sidebar-toggle");
 
   const applySidebarMode = () => {
-    if (window.matchMedia("(max-width: 720px)").matches) {
+    if (isMobileView()) {
       cols.classList.remove("sidebar-collapsed");
+      cols.classList.remove("mobile-sidebar-open");
       desktopSidebarCollapsed = false;
       return;
     }
@@ -1150,19 +1130,20 @@ function initSidebarBehavior() {
   window.addEventListener("resize", applySidebarMode);
 
   sidebar.addEventListener("mouseenter", () => {
-    if (window.matchMedia("(max-width: 720px)").matches) return;
+    if (isMobileView()) return;
     cols.classList.remove("sidebar-collapsed");
   });
   sidebar.addEventListener("mouseleave", () => {
-    if (window.matchMedia("(max-width: 720px)").matches) return;
+    if (isMobileView()) return;
     if (desktopSidebarCollapsed) cols.classList.add("sidebar-collapsed");
   });
   sidebar.addEventListener("wheel", () => {
-    if (window.matchMedia("(max-width: 720px)").matches) return;
+    if (isMobileView()) return;
     cols.classList.remove("sidebar-collapsed");
   }, { passive: true });
 
   mobileToggle.addEventListener("click", () => {
+    if (isMobileView()) return;
     cols.classList.toggle("mobile-sidebar-open");
   });
 }
@@ -1264,6 +1245,10 @@ async function deleteEpisode(event, id) {
 // Upload panel
 // ────────────────────────────────────────────────────────────
 function openUpload() {
+  if (isMobileView()) {
+    toast("Uploads are only available on desktop.", "error");
+    return;
+  }
   queuedFiles = [];
   document.getElementById("queued-files").innerHTML = "";
   document.getElementById("upload-submit-btn").disabled = true;
