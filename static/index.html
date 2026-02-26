@@ -9,17 +9,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
 :root {
-  --bg:       #04030a;
-  --surface:  #0c0a18;
-  --card:     #141024;
-  --border:   #3f3568;
+  --bg:       #120b2d;
+  --surface:  #221252;
+  --card:     #2f1d66;
+  --border:   #6e51a8;
   --accent:   #ffe26d;
   --accent2:  #52d6ff;
   --gold:     #ffb347;
   --green:    #58f38a;
   --danger:   #ff5b7f;
-  --text:     #efe9ff;
-  --muted:    #9d91c5;
+  --text:     #f5f1ff;
+  --muted:    #c4b7e8;
   --radius:   0px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,7 +31,7 @@ body {
   background:
     linear-gradient(180deg, rgba(255,255,255,.04) 0 2px, transparent 2px 100%),
     linear-gradient(90deg, rgba(255,255,255,.03) 0 2px, transparent 2px 100%),
-    linear-gradient(160deg, #020203 0%, #07050e 46%, #0b0815 100%);
+    linear-gradient(160deg, #0b061f 0%, #160a37 42%, #1a1040 100%);
   background-size: 8px 8px, 8px 8px, auto;
   color: var(--text);
   min-height: 100vh;
@@ -41,7 +41,7 @@ body {
 .app { display: flex; flex-direction: column; min-height: 100vh; }
 
 header {
-  background: linear-gradient(180deg, #191427, #100d1a 58%, #09070f);
+  background: linear-gradient(180deg, #49308f, #2a1a5b 58%, #1f1145);
   border-bottom: 2px solid var(--border);
   box-shadow: 0 0 0 2px #080511, inset 0 0 0 2px rgba(255,238,173,.25), 0 8px 0 #080511;
   padding: 16px 24px;
@@ -177,7 +177,7 @@ header {
   width: 320px;
   min-width: 280px;
   max-width: 380px;
-  background: linear-gradient(180deg, rgba(22,18,34,.98), rgba(10,8,17,.99));
+  background: linear-gradient(180deg, rgba(64,41,125,.96), rgba(38,21,86,.98));
   border-right: 2px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -463,13 +463,13 @@ header {
   min-width: 0;
   background:
     linear-gradient(180deg, rgba(255,255,255,.04) 0 1px, transparent 1px 100%),
-    linear-gradient(180deg, rgba(8,6,14,.95), rgba(6,5,10,.99));
+    linear-gradient(180deg, rgba(20,12,45,.92), rgba(23,14,50,.98));
   background-size: 100% 6px, auto;
 }
 
 /* ── Cards ── */
 .card {
-  background: linear-gradient(180deg, rgba(28,22,44,.95), rgba(12,9,20,.97));
+  background: linear-gradient(180deg, rgba(68,45,132,.92), rgba(44,27,92,.95));
   border: 2px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
@@ -488,8 +488,8 @@ header {
 /* ── Stats row ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card {
-  background: linear-gradient(180deg, rgba(30,24,50,.95), rgba(14,10,24,.97));
-  border: 2px solid #4f4278;
+  background: linear-gradient(180deg, rgba(73,49,142,.9), rgba(53,33,109,.95));
+  border: 2px solid #8c70cf;
   border-radius: var(--radius);
   padding: 14px 16px;
   text-align: center;
@@ -573,7 +573,7 @@ header {
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 thead th {
-  background: linear-gradient(180deg, rgba(43,35,68,.98), rgba(22,17,34,.99));
+  background: linear-gradient(180deg, rgba(104,81,176,.98), rgba(74,54,134,.98));
   padding: 10px 12px;
   text-align: left;
   font-size: .75rem;
