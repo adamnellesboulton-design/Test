@@ -1237,6 +1237,7 @@ let minuteChart   = null;
 let queuedFiles   = [];   // [{file, title, date}]
 let desktopSidebarCollapsed = false;
 const APP_PASSWORD = "edge";
+const UPLOAD_BATCH_SIZE = 5;
 const MOBILE_MEDIA_QUERY = "(max-width: 720px)";
 
 function isMobileView() {
@@ -1252,7 +1253,7 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
     const input = document.getElementById("password-input");
     const error = document.getElementById("password-error");
-    if (input.value === APP_PASSWORD) {
+    if (input.value.trim().toLowerCase() === APP_PASSWORD) {
       document.getElementById("password-gate").style.display = "none";
       initApp();
       return;
@@ -1545,43 +1546,58 @@ async function submitUpload() {
 
   btn.disabled = true;
   prog.style.display = "block";
-  prog.textContent = `Uploading ${queuedFiles.length} file(s)…`;
   resultsEl.innerHTML = "";
 
-  const fd = new FormData();
-  queuedFiles.forEach(item => {
-    fd.append("files[]", item.file, item.file.name);
-    fd.append("title[]", item.title || item.file.name.replace(/\.txt$/i, ""));
-  });
+  const totalFiles = queuedFiles.length;
+  let uploadedCount = 0;
+  let errorCount = 0;
+  let successEpisodes = 0;
+  let html = "";
 
   try {
-    const r = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await parseJsonResponse(r);
+    for (let i = 0; i < queuedFiles.length; i += UPLOAD_BATCH_SIZE) {
+      const batch = queuedFiles.slice(i, i + UPLOAD_BATCH_SIZE);
+      prog.textContent = `Uploading ${Math.min(i + batch.length, totalFiles)}/${totalFiles} file(s)…`;
 
-    if (!r.ok) {
-      throw new Error(data.error || `Upload failed (${r.status})`);
+      const fd = new FormData();
+      batch.forEach(item => {
+        fd.append("files[]", item.file, item.file.name);
+        fd.append("title[]", item.title || item.file.name.replace(/\.txt$/i, ""));
+      });
+
+      const r = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await parseJsonResponse(r);
+
+      if (!r.ok) {
+        throw new Error(data.error || `Upload failed (${r.status})`);
+      }
+
+      const created = data.created || [];
+      const errors = data.errors || [];
+      successEpisodes += created.length;
+      uploadedCount += batch.length;
+      errorCount += errors.length;
+
+      created.forEach(ep => {
+        html += `<div class="upload-result-item ok">✓ ${escHtml(ep.title)} — ${ep.segment_count} segments</div>`;
+      });
+      errors.forEach(err => {
+        html += `<div class="upload-result-item error">✗ ${escHtml(err.filename)}: ${escHtml(err.error)}</div>`;
+      });
+      resultsEl.innerHTML = html;
     }
 
-    let html = "";
-    (data.created || []).forEach(ep => {
-      html += `<div class="upload-result-item ok">✓ ${escHtml(ep.title)} — ${ep.segment_count} segments</div>`;
-    });
-    (data.errors || []).forEach(err => {
-      html += `<div class="upload-result-item error">✗ ${escHtml(err.filename)}: ${escHtml(err.error)}</div>`;
-    });
-    resultsEl.innerHTML = html;
+    prog.textContent = `Done. ${successEpisodes} uploaded, ${errorCount} errors.`;
 
-    prog.textContent = `Done. ${(data.created||[]).length} uploaded, ${(data.errors||[]).length} errors.`;
-
-    if ((data.created || []).length > 0) {
+    if (successEpisodes > 0) {
       await loadEpisodes();
-      toast(`${data.created.length} episode(s) uploaded`, "success");
+      toast(`${successEpisodes} episode(s) uploaded`, "success");
     }
 
     queuedFiles = [];
     btn.disabled = true;
   } catch (e) {
-    prog.textContent = "Upload failed: " + e.message;
+    prog.textContent = `Upload interrupted after ${uploadedCount}/${totalFiles} file(s): ${e.message}`;
     toast("Upload failed", "error");
     btn.disabled = false;
   }
