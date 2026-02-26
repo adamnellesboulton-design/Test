@@ -1837,41 +1837,21 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
     return window.reduce((a, b) => a + b, 0) / 20;
   });
 
-  const lineDatasets = isMultiKeyword
-    ? perKeyword.map((kw, i) => {
-        const style = getStyleForKeyword(kw.keyword, kwStyles, i);
-        const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
-        const counts = eps.map(e => (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0));
-        const rolling = counts.map((_, idx) => {
-          if (idx < 19) return null;
-          const window = counts.slice(idx - 19, idx + 1);
-          return window.reduce((a, b) => a + b, 0) / 20;
-        });
-        return {
-          label: `${kw.keyword} rolling`,
-          data: rolling,
-          type: "line",
-          borderColor: style.line,
-          backgroundColor: style.line,
-          borderWidth: 1.8,
-          borderDash: [5, 3],
-          pointRadius: 0,
-          tension: 0.24,
-          order: 10,
-        };
-      })
-    : [{
-        label: "Rolling avg (20 eps)",
-        data: rolling20,
-        type: "line",
-        borderColor: "#9cf7ff",
-        backgroundColor: "#9cf7ff",
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.25,
-        // Keep the rolling-average line above bars so it is always visible.
-        order: 10,
-      }];
+  const rollingLabel = isAnd
+    ? "Co-occurrence rolling avg (20 eps)"
+    : (isMultiKeyword ? "Combined rolling avg (20 eps)" : "Rolling avg (20 eps)");
+  const lineDatasets = [{
+    label: rollingLabel,
+    data: rolling20,
+    type: "line",
+    borderColor: "#9cf7ff",
+    backgroundColor: "#9cf7ff",
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.25,
+    // Keep the rolling-average line above bars so it is always visible.
+    order: 10,
+  }];
 
 
   trendChart = new Chart(ctx, {
