@@ -171,7 +171,14 @@ def api_search():
     if not keyword:
         return jsonify({"error": "keyword required"}), 400
 
-    lookback = int(request.args.get("lookback", 20))
+    lookback_raw = request.args.get("lookback", "20").strip().lower()
+    if lookback_raw == "all":
+        lookback = None
+    else:
+        try:
+            lookback = int(lookback_raw)
+        except ValueError:
+            return jsonify({"error": "Invalid lookback"}), 400
     mode     = request.args.get("mode", "or").strip().lower()   # "or" | "and"
 
     # Optional episode filter — comma-separated IDs
@@ -236,7 +243,8 @@ def api_search():
         "last_100": _r(result.avg_pm_last_100),
     }
 
-    fv      = calculate_fair_value(result, lookback=lookback)
+    fv_lookback = len(result.episodes) if lookback is None else lookback
+    fv      = calculate_fair_value(result, lookback=fv_lookback)
     rec_pmf = recommended_pmf(fv)
     rec_sf  = recommended_sf(fv)
 
@@ -250,7 +258,7 @@ def api_search():
             else ("empirical" if fv.lookback_episodes >= 10 else "poisson")
         ),
         "pi_estimate":       round(fv.pi_estimate, 3) if fv.pi_estimate is not None else None,
-        "zero_fraction":     round(sum(1 for ep in result.episodes[:lookback] if ep.count == 0) / max(fv.lookback_episodes, 1), 3),
+        "zero_fraction":     round(sum(1 for ep in result.episodes[:fv_lookback] if ep.count == 0) / max(fv.lookback_episodes, 1), 3),
         "lookback_episodes": fv.lookback_episodes,
         "reference_minutes": round(fv.reference_minutes, 1) if fv.reference_minutes else None,
         "buckets": [
@@ -289,7 +297,8 @@ def api_search():
                 "last_100": _r(res.avg_pm_last_100),
             },
         })
-        kw_fv    = calculate_fair_value(res, lookback=lookback)
+        kw_fv_lookback = len(res.episodes) if lookback is None else lookback
+        kw_fv    = calculate_fair_value(res, lookback=kw_fv_lookback)
         kw_sf    = recommended_sf(kw_fv)
         per_keyword_fv.append({
             "keyword": t,
