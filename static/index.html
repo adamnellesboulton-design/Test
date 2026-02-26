@@ -611,6 +611,9 @@ tbody td { padding: 9px 12px; }
   text-align: center;
 }
 .count-badge.zero { background: var(--border); color: var(--muted); }
+.count-badge.dynamic {
+  color: #e8f4ff;
+}
 .ep-num { color: var(--accent2); font-weight: 600; }
 .per-min { color: var(--muted); font-size: .8rem; }
 
@@ -1048,6 +1051,40 @@ function lightenHex(hex, amount = 0.2) {
   const mix = c => Math.max(0, Math.min(255, Math.round(c + (255 - c) * amount)));
   const toHex = c => c.toString(16).padStart(2, "0");
   return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn:
+        h = (gn - bn) / d + (gn < bn ? 6 : 0);
+        break;
+      case gn:
+        h = (bn - rn) / d + 2;
+        break;
+      default:
+        h = (rn - gn) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100),
+  };
 }
 
 function getKeywordColor(keyword, index = 0) {
@@ -1545,7 +1582,7 @@ function renderResults(data) {
   // Average pills
 
   const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
-  const makePills = (a, apm) => {
+  const makePills = (a, apm, style = null) => {
     const defs = [
       {cls:"ep1",   n:"Last 1",   v: a.last_1,   pm: apm.last_1},
       {cls:"ep5",   n:"Last 5",   v: a.last_5,   pm: apm.last_5},
@@ -1553,10 +1590,16 @@ function renderResults(data) {
       {cls:"ep50",  n:"Last 50",  v: a.last_50,  pm: apm.last_50},
       {cls:"ep100", n:"Last 100", v: a.last_100, pm: apm.last_100},
     ];
+    const pillStyle = style
+      ? ` style="border-color:${style.base};box-shadow:0 0 8px ${style.glow};"`
+      : "";
+    const valueStyle = style
+      ? ` style="color:${style.line};text-shadow:0 0 8px ${style.glow};"`
+      : "";
     return defs.map(p =>
-      `<div class="avg-pill ${p.cls}">
+      `<div class="avg-pill ${p.cls}"${pillStyle}>
          <span class="n">${p.n}</span>
-         <span class="v">${fmt(p.v)}</span>
+         <span class="v"${valueStyle}>${fmt(p.v)}</span>
          <span class="pm">${fmtPm(p.pm)}</span>
        </div>`
     ).join("");
@@ -1575,14 +1618,17 @@ function renderResults(data) {
          const style = getStyleForKeyword(kw.keyword, currentKeywordStyles);
          return `<div class="avg-kw-block">
            <div class="avg-kw-label" style="color:${style.line}; text-shadow:0 0 8px ${style.glow};">${escHtml(kw.keyword)}</div>
-           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
+           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min, style)}</div>
          </div>`;
       })()
     ).join("");
   } else {
     // Single keyword or AND mode: one row (labelled for AND)
     const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
-    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min)}</div>`;
+    const singleStyle = isAnd
+      ? { base: "#22d3ee", line: "#9cf7ff", glow: withAlpha("#22d3ee", 0.55) }
+      : getStyleForKeyword((data.per_keyword && data.per_keyword[0] ? data.per_keyword[0].keyword : currentKeyword || "Mentions"), currentKeywordStyles, 0);
+    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min, singleStyle)}</div>`;
   }
   document.getElementById("avgs-container").innerHTML = avgsHtml;
 
@@ -1798,13 +1844,22 @@ function renderFVChart(fv, pkFv, kwStyles = {}) {
 }
 
 // ── FV grid ──────────────────────────────────────────────────
+function saturationBlue(absValue, maxAbsValue) {
+  const boundedMax = Math.max(1, Number(maxAbsValue) || 1);
+  const ratio = Math.max(0, Math.min(1, Math.abs(Number(absValue) || 0) / boundedMax));
+  const sat = Math.round(ratio * 100);
+  return `hsl(208, ${sat}%, 72%)`;
+}
+
 function renderFVGrid(fv) {
+  const maxPct = Math.max(1, ...fv.buckets.map(b => Number(b.pct) || 0));
   document.getElementById("fv-grid").innerHTML = fv.buckets.map(b => {
-    const pct = b.pct;
+    const pct = Number(b.pct) || 0;
     const cls = pct >= 30 ? "high" : pct >= 10 ? "medium" : "low";
+    const evTone = saturationBlue(pct, maxPct);
     return `<div class="fv-cell">
       <div class="fv-n">≥ ${b.label} mention${b.n !== 1 ? "s" : ""}</div>
-      <div class="fv-pct ${cls}">${pct.toFixed(1)}%</div>
+      <div class="fv-pct ${cls}" style="color:${evTone}">${pct.toFixed(1)}%</div>
       <div class="fv-label">P(mentions ≥ ${b.label})</div>
     </div>`;
   }).join("");
@@ -1834,10 +1889,51 @@ function renderContextMatch(matchText, kwStyles = {}, keyword = "") {
 // ── Episode table ─────────────────────────────────────────────
 function renderTable(episodes, kwStyles = {}) {
   const tbody = document.getElementById("ep-tbody");
+  const pk = (currentData && currentData.per_keyword) || [];
+  const perKeywordEpisodeMaps = pk.map(kw => ({
+    keyword: kw.keyword,
+    idxMap: Object.fromEntries((kw.episodes || []).map(e => [e.episode_id, Number(e.count) || 0])),
+  }));
+
   tbody.innerHTML = episodes.map(ep => {
     const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
+    const badgeStyle = getStyleForKeyword(currentKeyword || "Mentions", kwStyles, 0);
+    const countClamped = Math.max(1, Math.min(100, Number(ep.count) || 0));
+    const satRatio = (countClamped - 1) / 99;
+    const { h, l } = rgbToHsl(...Object.values(hexToRgb(badgeStyle.base)));
+    const sat = Math.round(8 + satRatio * 92);
+    const flatBgColor = `hsl(${h}, ${sat}%, ${Math.max(20, Math.min(72, l))}%)`;
+
+    let dynamicBg = flatBgColor;
+    let dynamicBorder = badgeStyle.base;
+    if (perKeywordEpisodeMaps.length > 1 && ep.count > 0) {
+      const parts = perKeywordEpisodeMaps
+        .map(({ keyword, idxMap }, idx) => {
+          const value = idxMap[ep.episode_id] || 0;
+          const style = getStyleForKeyword(keyword, kwStyles, idx);
+          return { value, color: style.base };
+        })
+        .filter(part => part.value > 0)
+        .sort((a, b) => b.value - a.value);
+
+      const total = parts.reduce((sum, part) => sum + part.value, 0);
+      if (total > 0) {
+        let cursor = 0;
+        const stops = parts.map((part, idx) => {
+          const start = cursor;
+          cursor += (part.value / total) * 100;
+          const end = idx === parts.length - 1 ? 100 : cursor;
+          const s = start.toFixed(2);
+          const e = end.toFixed(2);
+          return `${part.color} ${s}%, ${part.color} ${e}%`;
+        });
+        dynamicBg = `linear-gradient(90deg, ${stops.join(', ')})`;
+        dynamicBorder = parts[0].color;
+      }
+    }
+
     const badge = ep.count > 0
-      ? `<span class="count-badge">${ep.count}</span>`
+      ? `<span class="count-badge dynamic" style="background:${dynamicBg};border-color:${dynamicBorder};color:${badgeStyle.line};box-shadow:0 0 10px ${badgeStyle.glow};">${ep.count}</span>`
       : `<span class="count-badge zero">0</span>`;
     const pm    = ep.per_minute > 0 ? `<span class="per-min">${ep.per_minute.toFixed(3)}/min</span>` : "";
     const title = (ep.title || "").slice(0, 55) + ((ep.title || "").length > 55 ? "…" : "");
