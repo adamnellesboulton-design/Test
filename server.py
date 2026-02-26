@@ -23,6 +23,7 @@ from jre_analyzer.analyzer import index_episode, index_all
 from jre_analyzer.search import (
     search, get_minute_breakdown, merge_results, intersect_results,
     phrase_search, get_phrase_minute_breakdown, get_context,
+    get_context_multi_adjacent,
     search_multi_adjacent, get_minute_breakdown_multi_adjacent,
 )
 from jre_analyzer.fair_value import calculate_fair_value, recommended_pmf, recommended_sf, MAX_BUCKET
@@ -388,9 +389,12 @@ def api_context():
         return jsonify({"error": "episode_id must be an integer"}), 400
 
     terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
-    all_hits: list[dict] = []
-    for t in terms:
-        all_hits.extend(get_context(db, t, eid))
+    if len(terms) > 1 and all(" " not in t for t in terms):
+        all_hits = get_context_multi_adjacent(db, terms, eid)
+    else:
+        all_hits: list[dict] = []
+        for t in terms:
+            all_hits.extend(get_context(db, t, eid))
 
     all_hits.sort(key=lambda h: (h["minute"], h["second"]))
     return jsonify({"episode_id": eid, "keyword": keyword, "hits": all_hits})

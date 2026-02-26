@@ -635,6 +635,55 @@ def get_phrase_minute_breakdown(
 
 # ── Context (KWIC) ────────────────────────────────────────────────────────────
 
+
+
+def get_context_multi_adjacent(
+    db: Database,
+    terms: list[str],
+    episode_id: int,
+    context_chars: int = 100,
+) -> list[dict]:
+    """
+    Return KWIC snippets for multi-keyword searches with adjacent deduplication.
+
+    Consecutive matching tokens across the transcript are collapsed into a
+    single hit (same run logic as search_multi_adjacent).
+    """
+    norm_terms = [t.strip().lower() for t in terms if t.strip()]
+    if not norm_terms:
+        return []
+
+    segments = db.get_transcript(episode_id)
+    hits: list[dict] = []
+    in_run = False
+
+    for seg in segments:
+        text = seg.get("text", "")
+        token_iter = re.finditer(r"[A-Za-z]+", text)
+        for m in token_iter:
+            token = m.group().lower()
+            is_match = any(is_valid_match(token, t) for t in norm_terms)
+            if is_match:
+                if not in_run:
+                    s = max(0, m.start() - context_chars)
+                    e = min(len(text), m.end() + context_chars)
+                    prefix = ("…" if s > 0 else "") + text[s:m.start()]
+                    suffix = text[m.end():e] + ("…" if e < len(text) else "")
+                    ts = seg.get("start", 0)
+                    hits.append({
+                        "minute": int(ts // 60),
+                        "second": int(ts % 60),
+                        "prefix": prefix,
+                        "match": m.group(),
+                        "suffix": suffix,
+                    })
+                in_run = True
+            else:
+                in_run = False
+
+    return hits
+
+
 def get_context(
     db: Database,
     keyword: str,
