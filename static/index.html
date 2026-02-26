@@ -1403,46 +1403,90 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
 
   const eps    = [...episodes].reverse();
   const labels = eps.map(e => e.episode_number ? `#${e.episode_number}` : (e.episode_date || `ID${e.episode_id}`));
-  // Stack bars per-keyword only in AND mode.
-  // In OR mode the per-keyword individual counts sum to MORE than the
-  // deduped merged count (adjacent "donald trump" = 2 keywords but 1 mention),
-  // so stacking would overstate the true count shown in the table.
-  const stacked = perKeyword && perKeyword.length > 1 && isAnd;
+  const mergedCounts = eps.map(e => e.count);
+  const isMultiKeyword = perKeyword && perKeyword.length > 1;
+  // Stack only in AND mode. In OR mode, show grouped component bars and
+  // a deduped merged line so the final combined count remains visible.
+  const stacked = !!(isMultiKeyword && isAnd);
 
   let barDatasets;
-  if (stacked) {
+  if (isMultiKeyword) {
     barDatasets = perKeyword.map((kw, i) => {
       const col = KW_COLORS[i % KW_COLORS.length];
       const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
-      // In AND mode zero out episodes where co-occurrence didn't happen
       const counts = eps.map(e =>
         (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0)
       );
-      return { label: kw.keyword, data: counts, backgroundColor: col + "cc", borderColor: col,
-               borderWidth: 1, borderRadius: 3, type: "bar", order: 2, stack: "kw" };
+      return {
+        label: kw.keyword,
+        data: counts,
+        backgroundColor: col + "cc",
+        borderColor: col,
+        borderWidth: 1,
+        borderRadius: 3,
+        type: "bar",
+        order: 2,
+        stack: stacked ? "kw" : undefined,
+      };
     });
   } else {
-    const counts = eps.map(e => e.count);
     const col = KW_COLORS[0];
     const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
     barDatasets = [{
-      label, data: counts,
-      backgroundColor: counts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
-      borderColor:     counts.map(c => c > 0 ? col       : "#2a2a4a"),
+      label, data: mergedCounts,
+      backgroundColor: mergedCounts.map(c => c > 0 ? col + "cc" : "#2a2a4a"),
+      borderColor:     mergedCounts.map(c => c > 0 ? col       : "#2a2a4a"),
       borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
     }];
   }
 
-  const datasets = [...barDatasets];
+  const rolling20 = mergedCounts.map((_, i) => {
+    const start = Math.max(0, i - 19);
+    const window = mergedCounts.slice(start, i + 1);
+    return window.reduce((a, b) => a + b, 0) / window.length;
+  });
+
+  const lineDatasets = [
+    {
+      label: "Rolling avg (20 eps)",
+      data: rolling20,
+      type: "line",
+      borderColor: "#ffd166",
+      backgroundColor: "#ffd166",
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.25,
+      order: 0,
+    }
+  ];
+
+  if (isMultiKeyword && !isAnd) {
+    lineDatasets.push({
+      label: "Combined (deduped)",
+      data: mergedCounts,
+      type: "line",
+      borderColor: "#ffffff",
+      backgroundColor: "#ffffff",
+      borderWidth: 1.8,
+      pointRadius: 0,
+      tension: 0.2,
+      order: 1,
+    });
+  }
 
   trendChart = new Chart(ctx, {
-    data: { labels, datasets },
+    data: { labels, datasets: [...barDatasets, ...lineDatasets] },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
         legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
-        tooltip: { callbacks: { title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; } } }
+        tooltip: {
+          callbacks: {
+            title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
+            label: item => `${item.dataset.label}: ${Number(item.raw).toFixed(2)}`,
+          }
+        }
       },
       scales: {
         x: { ticks: { color: "#888", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { color: "#22223a" }, stacked },
