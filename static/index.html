@@ -422,7 +422,6 @@ header {
   border-color: var(--accent2);
   background: rgba(230,230,230,.05);
 }
-.upload-drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
 .upload-drop-zone p { color: var(--muted); font-size: .9rem; }
 .upload-drop-zone strong { color: var(--accent2); cursor: pointer; }
 #file-input { display: none; }
@@ -682,7 +681,6 @@ tbody td { padding: 9px 12px; }
   padding: 60px 20px;
   color: var(--muted);
 }
-.empty .icon { font-size: 3rem; margin-bottom: 12px; }
 .spinner {
   width: 32px; height: 32px;
   border: 3px solid var(--border);
@@ -821,7 +819,6 @@ tbody td { padding: 9px 12px; }
     <div class="episode-count" id="episode-count"></div>
     <div class="episode-list" id="episode-list">
       <div class="empty" style="padding:30px 20px">
-        <div class="icon">📂</div>
         <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
       </div>
     </div>
@@ -833,7 +830,6 @@ tbody td { padding: 9px 12px; }
     <!-- No data -->
     <div id="no-data-msg">
       <div class="empty">
-        <div class="icon">🔍</div>
         <h2 style="margin-bottom:10px">Upload transcripts to begin</h2>
         <p style="color:var(--muted)">Use desktop to upload .txt transcript files, then search for any keyword.</p>
       </div>
@@ -987,7 +983,6 @@ tbody td { padding: 9px 12px; }
     <div class="upload-title">Upload Transcripts</div>
 
     <div class="upload-drop-zone" id="drop-zone">
-      <div class="icon">📄</div>
       <p>Drag &amp; drop .txt files here<br>or <strong id="browse-link">browse</strong></p>
       <input type="file" id="file-input" accept=".txt" multiple/>
     </div>
@@ -1268,7 +1263,6 @@ function renderSidebar() {
 
   if (allEpisodes.length === 0) {
     list.innerHTML = `<div class="empty" style="padding:30px 20px">
-      <div class="icon">📂</div>
       <p>No episodes yet.<br>Upload .txt transcripts to get started.</p>
     </div>`;
     countEl.textContent = "";
