@@ -1341,43 +1341,10 @@ function renderResults(data) {
   const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
   const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
 
-  const avgFrom = (vals, n) => {
-    const win = vals.slice(0, n);
-    if (!win.length) return null;
-    return win.reduce((s, v) => s + Number(v || 0), 0) / win.length;
-  };
-
-  // In multi-keyword OR mode, cards/pills should reflect the same stacked
-  // total shown in the trend bars (sum of keyword mentions), not the
-  // adjacent-deduped merged count.
+  // In multi-keyword OR mode, aggregate cards/pills should use the same
+  // adjacent-deduped merged count shown in the episode table.
   let displayAverages = avgs;
   let displayAveragesPerMin = data.averages_per_min;
-  if (isMultiOr) {
-    const countMaps = (data.per_keyword || []).map(kw =>
-      Object.fromEntries((kw.episodes || []).map(e => [e.episode_id, Number(e.count || 0)]))
-    );
-    const combinedCounts = eps.map(ep =>
-      countMaps.reduce((sum, cmap) => sum + Number(cmap[ep.episode_id] || 0), 0)
-    );
-    const combinedPm = combinedCounts.map((c, i) => {
-      const dur = Number(eps[i]?.duration_seconds || 0);
-      return dur > 0 ? c / (dur / 60) : 0;
-    });
-    displayAverages = {
-      last_1: avgFrom(combinedCounts, 1),
-      last_5: avgFrom(combinedCounts, 5),
-      last_20: avgFrom(combinedCounts, 20),
-      last_50: avgFrom(combinedCounts, 50),
-      last_100: avgFrom(combinedCounts, 100),
-    };
-    displayAveragesPerMin = {
-      last_1: avgFrom(combinedPm, 1),
-      last_5: avgFrom(combinedPm, 5),
-      last_20: avgFrom(combinedPm, 20),
-      last_50: avgFrom(combinedPm, 50),
-      last_100: avgFrom(combinedPm, 100),
-    };
-  }
 
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
@@ -1407,10 +1374,10 @@ function renderResults(data) {
 
   let avgsHtml;
   if (isMultiOr) {
-    // OR multi-keyword: show combined stacked total + one row per keyword.
+    // OR multi-keyword: show adjacent-deduped combined total + one row per keyword.
     const combinedBlock =
       `<div class="avg-kw-block">
-         <div class="avg-kw-label">Combined (stacked total)</div>
+         <div class="avg-kw-label">Combined (adjacency-deduped)</div>
          <div class="avgs-row">${makePills(displayAverages, displayAveragesPerMin)}</div>
        </div>`;
     avgsHtml = combinedBlock + (data.per_keyword || []).map(kw =>
@@ -1484,20 +1451,6 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   // modes so the histogram shows each keyword's contribution by color.
   const stacked = !!isMultiKeyword;
 
-  // Compute stacked totals directly from per-keyword episode counts.
-  // This is the series represented by the stacked bars in OR mode.
-  const perKeywordMaps = isMultiKeyword
-    ? perKeyword.map(kw => Object.fromEntries((kw.episodes || []).map(ep => [ep.episode_id, Number(ep.count || 0)])))
-    : [];
-  const stackedCounts = isMultiKeyword
-    ? eps.map(e =>
-        perKeywordMaps.reduce((sum, cmap) => {
-          const v = Number(cmap[e.episode_id] || 0);
-          if (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) return sum;
-          return sum + v;
-        }, 0)
-      )
-    : mergedCounts;
 
   let barDatasets;
   if (isMultiKeyword) {
@@ -1531,14 +1484,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     }];
   }
 
-  // Make the rolling line track the same quantity represented by the bars.
-  // For multi-keyword OR searches the stacked bars show the sum of each
-  // keyword's mentions, while mergedCounts is the adjacent-deduped combined
-  // total. Using mergedCounts there makes the rolling line look "wrong"
-  // relative to the bars.
-  const rollingSourceCounts = (isMultiKeyword && !isAnd)
-    ? stackedCounts
-    : mergedCounts;
+  // Keep the rolling line adjacency-deduped so multi-keyword adjacent phrases
+  // (e.g. "Bill Clinton") are counted once in calculations.
+  const rollingSourceCounts = mergedCounts;
 
   const rolling20 = rollingSourceCounts.map((_, i) => {
     const start = Math.max(0, i - 19);
@@ -1548,9 +1496,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
 
   const lineDatasets = [
     {
-      label: (isMultiKeyword && !isAnd)
-        ? "Rolling avg (20 eps, stacked total)"
-        : "Rolling avg (20 eps)",
+      label: "Rolling avg (20 eps)",
       data: rolling20,
       type: "line",
       borderColor: "#ffd166",
