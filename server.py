@@ -398,7 +398,7 @@ def api_minutes():
     if not merged_counts:
         return jsonify({"episode_id": eid, "keyword": keyword, "minutes": [], "per_keyword": per_keyword_minutes})
 
-    full_range = list(range(min(merged_counts), max(merged_counts) + 1))
+    full_range = list(range(0, max(merged_counts) + 1))
 
     return jsonify({
         "episode_id":  eid,
