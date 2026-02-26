@@ -273,13 +273,9 @@ def api_search():
     if not terms:
         return jsonify({"error": "keyword required"}), 400
     individual_results = _build_individual_results(terms, episode_ids)
-    # For multi-keyword OR single-word queries, deduplicate adjacent
-    # occurrences: "Joe Biden" counts as 1 mention, not 2.
-    #
-    # AND mode intentionally uses strict co-occurrence merging where counts are
-    # summed when all terms are present in an episode; adjacency dedup there
-    # undercounts the combined totals used by average/FV badges.
-    if mode == "or" and len(terms) > 1 and all(" " not in t for t in terms):
+    # For multi-keyword single-word queries, deduplicate adjacent occurrences:
+    # "Joe Biden" counts as 1 mention, not 2.
+    if len(terms) > 1 and all(" " not in t for t in terms):
         result = search_multi_adjacent(
             db, keyword, terms, individual_results,
             mode=mode, episode_ids=episode_ids,
