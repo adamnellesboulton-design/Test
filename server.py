@@ -33,6 +33,31 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 
 DB_PATH = Path(os.environ.get("DB_PATH", "jre_data.db"))
 db = Database(db_path=DB_PATH)
+VALID_MODES = {"or", "and"}
+
+
+def _parse_mode(raw_mode: str) -> str | None:
+    mode = raw_mode.strip().lower()
+    return mode if mode in VALID_MODES else None
+
+
+def _parse_terms(keyword: str) -> list[str]:
+    return [kw.strip() for kw in keyword.split(",") if kw.strip()]
+
+
+def _parse_episode_ids(ep_ids_raw: str) -> list[int] | None:
+    cleaned = ep_ids_raw.strip()
+    if not cleaned:
+        return None
+    return [int(x) for x in cleaned.split(",") if x.strip()]
+
+
+def _build_individual_results(terms: list[str], episode_ids: list[int] | None):
+    return [
+        phrase_search(db, t, episode_ids=episode_ids) if " " in t
+        else search(db, t, episode_ids=episode_ids)
+        for t in terms
+    ]
 
 
 # ── Static files ─────────────────────────────────────────────────────────────
@@ -179,27 +204,24 @@ def api_search():
             lookback = int(lookback_raw)
         except ValueError:
             return jsonify({"error": "Invalid lookback"}), 400
-    mode     = request.args.get("mode", "or").strip().lower()   # "or" | "and"
+    mode_raw = request.args.get("mode", "or")
+    mode = _parse_mode(mode_raw)
+    if mode is None:
+        return jsonify({"error": "Invalid mode. Use 'or' or 'and'."}), 400
 
     # Optional episode filter — comma-separated IDs
-    ep_ids_raw = request.args.get("episode_ids", "").strip()
-    episode_ids = None
-    if ep_ids_raw:
-        try:
-            episode_ids = [int(x) for x in ep_ids_raw.split(",") if x.strip()]
-        except ValueError:
-            return jsonify({"error": "Invalid episode_ids"}), 400
+    ep_ids_raw = request.args.get("episode_ids", "")
+    try:
+        episode_ids = _parse_episode_ids(ep_ids_raw)
+    except ValueError:
+        return jsonify({"error": "Invalid episode_ids"}), 400
 
     # Support comma-separated multi-keyword queries (e.g. "million, billion")
     # Phrases (terms containing spaces) are searched against raw transcript text.
-    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
+    terms = _parse_terms(keyword)
     if not terms:
         return jsonify({"error": "keyword required"}), 400
-    individual_results = [
-        phrase_search(db, t, episode_ids=episode_ids) if " " in t
-        else search(db, t, episode_ids=episode_ids)
-        for t in terms
-    ]
+    individual_results = _build_individual_results(terms, episode_ids)
     # For multi-keyword single-word queries, deduplicate adjacent occurrences:
     # "Joe Biden" counts as 1 mention, not 2.
     if len(terms) > 1 and all(" " not in t for t in terms):
@@ -338,13 +360,16 @@ def api_minutes():
     except ValueError:
         return jsonify({"error": "episode_id must be an integer"}), 400
 
-    mode  = request.args.get("mode", "or").strip().lower()
-    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
-    individual_results = [
-        phrase_search(db, t, episode_ids=[eid]) if " " in t
-        else search(db, t, episode_ids=[eid])
-        for t in terms
-    ]
+    mode_raw = request.args.get("mode", "or")
+    mode = _parse_mode(mode_raw)
+    if mode is None:
+        return jsonify({"error": "Invalid mode. Use 'or' or 'and'."}), 400
+
+    terms = _parse_terms(keyword)
+    if not terms:
+        return jsonify({"error": "keyword required"}), 400
+
+    individual_results = _build_individual_results(terms, [eid])
     result = merge_results(keyword, individual_results)
     ep     = result.episode_by_id(eid)
 
@@ -397,7 +422,10 @@ def api_context():
     except ValueError:
         return jsonify({"error": "episode_id must be an integer"}), 400
 
-    terms = [kw.strip() for kw in keyword.split(",") if kw.strip()]
+    terms = _parse_terms(keyword)
+    if not terms:
+        return jsonify({"error": "keyword required"}), 400
+
     if len(terms) > 1 and all(" " not in t for t in terms):
         all_hits = get_context_multi_adjacent(db, terms, eid)
     else:
