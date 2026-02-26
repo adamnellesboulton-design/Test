@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import os
+import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -35,6 +36,17 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 DB_PATH = Path(os.environ.get("DB_PATH", "jre_data.db"))
 db = Database(db_path=DB_PATH)
 VALID_MODES = {"or", "and"}
+INLINE_INDEX_MAX_FILES = int(os.environ.get("INLINE_INDEX_MAX_FILES", "1"))
+
+
+def _index_episodes_background(episode_ids: list[int]) -> None:
+    """Index uploaded episodes on a separate DB connection."""
+    bg_db = Database(db_path=DB_PATH)
+    try:
+        for episode_id in episode_ids:
+            index_episode(bg_db, episode_id)
+    finally:
+        bg_db.close()
 
 
 @app.errorhandler(HTTPException)
@@ -141,6 +153,8 @@ def api_upload():
 
     created = []
     errors  = []
+    deferred_episode_ids: list[int] = []
+    inline_index = len(files) <= INLINE_INDEX_MAX_FILES
 
     for i, f in enumerate(files):
         filename = f.filename or f"upload_{i+1}.txt"
@@ -198,7 +212,11 @@ def api_upload():
             errors.append({"filename": filename, "error": f"Storage/index error: {exc}"})
             continue
 
-    return jsonify({"created": created, "errors": errors})
+    return jsonify({
+        "created": created,
+        "errors": errors,
+        "indexing_deferred": bool(deferred_episode_ids),
+    })
 
 
 # ── API: delete episode ───────────────────────────────────────────────────────
