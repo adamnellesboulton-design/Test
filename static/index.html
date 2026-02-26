@@ -894,14 +894,6 @@ tbody td { padding: 9px 12px; }
           <div class="stat-val blue" id="stat-episodes">–</div>
           <div class="stat-label">Episodes searched</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-val gold" id="stat-avg1">–</div>
-          <div class="stat-label">Avg last episode</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val green" id="stat-avg20">–</div>
-          <div class="stat-label">Avg last 20 eps</div>
-        </div>
       </div>
 
       <!-- Averages pills -->
@@ -1791,8 +1783,6 @@ function renderResults(data, searchedKeywords = []) {
   const total = eps.reduce((s, e) => s + e.count, 0);
   document.getElementById("stat-total").textContent    = total;
   document.getElementById("stat-episodes").textContent = eps.length;
-  document.getElementById("stat-avg1").textContent     = fmt(displayAverages.last_1);
-  document.getElementById("stat-avg20").textContent    = fmt(displayAverages.last_20);
 
   // Average pills
 
