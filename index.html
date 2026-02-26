@@ -218,16 +218,6 @@ tbody td { padding: 9px 12px; }
 
 .user-hidden { display: none !important; }
 
-/* Keep only EV badge outputs visible for users */
-#stats-row,
-#trend-card,
-#fv-chart-wrap,
-#fv-grid-card,
-#minute-panel,
-#episode-history-card {
-  display: none !important;
-}
-
 #minute-panel { display: none; }
 #minute-panel.visible { display: block; }
 
@@ -372,7 +362,7 @@ tbody td { padding: 9px 12px; }
     <div class="avgs-row" id="avgs-row"></div>
 
     <div class="charts-grid">
-      <div class="card user-hidden" id="trend-card" aria-hidden="true">
+      <div class="card user-hidden" aria-hidden="true">
         <div class="card-title">Mentions per episode</div>
         <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
       </div>
@@ -390,11 +380,11 @@ tbody td { padding: 9px 12px; }
           <span id="fv-model-badge" class="fv-model-badge"></span>
           <span id="fv-ref-badge" class="fv-ref-badge" title="Normalized to median episode length of the lookback window"></span>
         </div>
-        <div class="chart-wrap user-hidden" id="fv-chart-wrap" aria-hidden="true"><canvas id="fv-chart"></canvas></div>
+        <div class="chart-wrap user-hidden" aria-hidden="true"><canvas id="fv-chart"></canvas></div>
       </div>
     </div>
 
-    <div class="card user-hidden" id="fv-grid-card" aria-hidden="true">
+    <div class="card user-hidden" aria-hidden="true">
       <div class="card-title">Fair value — P(≥ N mentions) in next episode</div>
       <div class="fv-grid" id="fv-grid"></div>
     </div>
@@ -404,7 +394,7 @@ tbody td { padding: 9px 12px; }
       <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
     </div>
 
-    <div class="card user-hidden" id="episode-history-card" aria-hidden="true">
+    <div class="card user-hidden" aria-hidden="true">
       <div class="card-title">Episode history — click a row for per-minute view</div>
       <div class="table-wrap">
         <table id="ep-table">
