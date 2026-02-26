@@ -167,29 +167,36 @@ def api_upload():
             errors.append({"filename": filename, "error": f"Parse error: {exc}"})
             continue
 
-        episode_id = db.insert_episode(
-            title=title,
-            transcript=segments,
-            episode_date=date,
-            filename=filename,
-            duration_seconds=duration,
-        )
+        try:
+            episode_id = db.insert_episode(
+                title=title,
+                transcript=segments,
+                episode_date=date,
+                filename=filename,
+                duration_seconds=duration,
+            )
 
-        # Index immediately (fast for a single episode)
-        index_episode(db, episode_id)
+            # Index immediately (fast for a single episode)
+            indexed = index_episode(db, episode_id)
+            ep = db.get_episode(episode_id)
+            if ep is None:
+                raise RuntimeError("Episode saved but could not be reloaded")
 
-        ep = db.get_episode(episode_id)
-        created.append({
-            "id":               ep["id"],
-            "title":            ep["title"],
-            "episode_date":     ep["episode_date"],
-            "episode_number":   ep["episode_number"],
-            "filename":         ep["filename"],
-            "uploaded_at":      ep["uploaded_at"],
-            "duration_seconds": ep["duration_seconds"],
-            "segment_count":    len(segments),
-            "indexed":          True,
-        })
+            created.append({
+                "id":               ep["id"],
+                "title":            ep["title"],
+                "episode_date":     ep["episode_date"],
+                "episode_number":   ep["episode_number"],
+                "filename":         ep["filename"],
+                "uploaded_at":      ep["uploaded_at"],
+                "duration_seconds": ep["duration_seconds"],
+                "segment_count":    len(segments),
+                "indexed":          bool(indexed),
+            })
+        except Exception as exc:
+            app.logger.exception("Failed to store/index uploaded transcript", exc_info=exc)
+            errors.append({"filename": filename, "error": f"Storage/index error: {exc}"})
+            continue
 
     return jsonify({"created": created, "errors": errors})
 
