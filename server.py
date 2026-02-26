@@ -414,12 +414,9 @@ def api_minutes():
     if not merged_counts:
         return jsonify({"episode_id": eid, "keyword": keyword, "minutes": [], "per_keyword": per_keyword_minutes})
 
-    # Always return a full timeline from t=0 through episode duration so
-    # minute charts cover the full episode, not only up to last mention.
-    duration_seconds = (ep.duration_seconds if ep else 0) or 0
-    duration_last_minute = max(0, math.ceil(duration_seconds / 60) - 1)
-    max_minute = max(max(merged_counts), duration_last_minute)
-    full_range = list(range(0, max_minute + 1))
+    # Always return a full timeline from t=0 so minute charts and
+    # rolling averages start at the true episode beginning.
+    full_range = list(range(0, max(merged_counts) + 1))
 
     return jsonify({
         "episode_id":  eid,
