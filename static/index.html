@@ -1164,7 +1164,7 @@ function buildKeywordColorOrder(keywords = []) {
   if (!available.length) return ordered;
 
   // Seed the order with the requested high-contrast rotation first.
-  getContrastRotation().forEach(anchor => {
+  KEYWORD_CONTRAST_ROTATION.forEach(anchor => {
     const idx = available.findIndex(entry => entry.color === anchor);
     if (idx >= 0) ordered.push(available.splice(idx, 1)[0]);
   });
@@ -1195,12 +1195,12 @@ function getKeywordColor(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
   const term = String(keyword || "").toLowerCase();
   const palette = (Array.isArray(colorOrder) && colorOrder.length)
     ? colorOrder
-    : getContrastRotation();
+    : KEYWORD_CONTRAST_ROTATION;
   if (typeof index === "number" && index >= 0) {
-    return palette[index % palette.length];
+    return KEYWORD_CONTRAST_ROTATION[index % KEYWORD_CONTRAST_ROTATION.length];
   }
   const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return palette[seed % palette.length];
+  return KEYWORD_CONTRAST_ROTATION[seed % KEYWORD_CONTRAST_ROTATION.length];
 }
 
 function buildKeywordStyle(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
