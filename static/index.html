@@ -1073,6 +1073,10 @@ const KEYWORD_BASE_COLORS = [
   "#8BC281", // sage
   "#7698E6", // cool indigo
   "#61B8A4", // sea green
+  "#FF8A5B", // neon coral
+  "#E6C15A", // amber gold
+  "#FF6FAE", // electric pink
+  "#59D7D0", // aqua mint
 ];
 
 function hexToRgb(hex) {
@@ -1717,31 +1721,17 @@ function renderResults(data, searchedKeywords = []) {
     ).join("");
   };
 
-  let avgsHtml;
-  if (isMultiOr) {
-    // OR multi-keyword: show adjacent-deduped combined total + one row per keyword.
-    const combinedBlock =
-      `<div class="avg-kw-block">
-         <div class="avg-kw-label">Combined (adjacency-deduped)</div>
-         <div class="avgs-row">${makePills(displayAverages, displayAveragesPerMin)}</div>
-       </div>`;
-    avgsHtml = combinedBlock + (data.per_keyword || []).map(kw =>
-      (() => {
-         const style = getStyleForKeyword(kw.keyword, currentKeywordStyles);
-         return `<div class="avg-kw-block">
-           <div class="avg-kw-label" style="color:${style.line}; text-shadow:0 0 8px ${style.glow};">${escHtml(kw.keyword)}</div>
-           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min, style)}</div>
-         </div>`;
-      })()
-    ).join("");
-  } else {
-    // Single keyword or AND mode: one row (labelled for AND)
-    const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
-    const singleStyle = isAnd
-      ? { base: "#22d3ee", line: "#9cf7ff", glow: withAlpha("#22d3ee", 0.55) }
-      : getStyleForKeyword((data.per_keyword && data.per_keyword[0] ? data.per_keyword[0].keyword : currentKeyword || "Mentions"), currentKeywordStyles, 0);
-    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min, singleStyle)}</div>`;
-  }
+  // Always show a single unified rolling-average row using the merged search
+  // result (adjacency-deduped for multi-keyword OR, co-occurrence for AND).
+  const averageLabel = isAnd
+    ? `<div class="avg-row-label">Co-occurrence average</div>`
+    : isMultiOr
+      ? `<div class="avg-row-label">Combined average (adjacency-deduped)</div>`
+      : "";
+  const singleStyle = isAnd
+    ? { base: "#22d3ee", line: "#9cf7ff", glow: withAlpha("#22d3ee", 0.55) }
+    : getStyleForKeyword((data.per_keyword && data.per_keyword[0] ? data.per_keyword[0].keyword : currentKeyword || "Mentions"), currentKeywordStyles, 0);
+  const avgsHtml = `${averageLabel}<div class="avgs-row">${makePills(displayAverages, displayAveragesPerMin, singleStyle)}</div>`;
   document.getElementById("avgs-container").innerHTML = avgsHtml;
 
   // Threshold checker
@@ -1851,41 +1841,21 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
     return window.reduce((a, b) => a + b, 0) / 20;
   });
 
-  const lineDatasets = isMultiKeyword
-    ? perKeyword.map((kw, i) => {
-        const style = getStyleForKeyword(kw.keyword, kwStyles, i);
-        const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
-        const counts = eps.map(e => (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0));
-        const rolling = counts.map((_, idx) => {
-          if (idx < 19) return null;
-          const window = counts.slice(idx - 19, idx + 1);
-          return window.reduce((a, b) => a + b, 0) / 20;
-        });
-        return {
-          label: `${kw.keyword} rolling`,
-          data: rolling,
-          type: "line",
-          borderColor: style.line,
-          backgroundColor: style.line,
-          borderWidth: 1.8,
-          borderDash: [5, 3],
-          pointRadius: 0,
-          tension: 0.24,
-          order: 10,
-        };
-      })
-    : [{
-        label: "Rolling avg (20 eps)",
-        data: rolling20,
-        type: "line",
-        borderColor: "#9cf7ff",
-        backgroundColor: "#9cf7ff",
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.25,
-        // Keep the rolling-average line above bars so it is always visible.
-        order: 10,
-      }];
+  const rollingLabel = isAnd
+    ? "Co-occurrence rolling avg (20 eps)"
+    : (isMultiKeyword ? "Combined rolling avg (20 eps)" : "Rolling avg (20 eps)");
+  const lineDatasets = [{
+    label: rollingLabel,
+    data: rolling20,
+    type: "line",
+    borderColor: "#9cf7ff",
+    backgroundColor: "#9cf7ff",
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.25,
+    // Keep the rolling-average line above bars so it is always visible.
+    order: 10,
+  }];
 
 
   trendChart = new Chart(ctx, {
