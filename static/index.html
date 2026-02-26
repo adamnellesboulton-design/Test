@@ -23,6 +23,7 @@
   --radius:   0px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+input, select, textarea, button { font: inherit; }
 html, body { height: 100%; }
 body {
   font-family: 'VT323', 'Courier New', monospace;
@@ -81,7 +82,7 @@ header {
 }
 .mode-toggle button.active {
   background: var(--accent);
-  color: #fff;
+  color: #2a1b00;
 }
 .mode-toggle button:first-child {
   border-right: 1px solid var(--border);
@@ -365,7 +366,7 @@ header {
   gap: 4px 16px; margin-bottom: 6px;
 }
 .help-kv .k {
-  font-family: monospace; font-size: .82rem;
+  font-family: 'Press Start 2P', monospace; font-size: .65rem;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 4px; padding: 1px 7px;
   color: var(--accent2); white-space: nowrap; align-self: start;
@@ -1031,7 +1032,9 @@ let currentData   = null;
 let currentKeyword = "";
 
 // Colour palette for multi-keyword charts (stacked bars)
-const KW_COLORS = ["#e94560","#a855f7","#f97316","#ec4899","#3b82f6","#14b8a6","#eab308"];
+const KW_COLORS = ["#ffe26d","#52d6ff","#ffb347","#ff5b7f","#8f78da","#58f38a","#d9b7ff"];
+Chart.defaults.font.family = "'Press Start 2P', 'VT323', monospace";
+Chart.defaults.color = "#9d91c5";
 let trendChart    = null;
 let fvChart       = null;
 let minuteChart   = null;
@@ -1640,7 +1643,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 300 },
       plugins: {
-        legend: { labels: { color: "#aaa", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
+        legend: { labels: { color: "#9d91c5", font: { size: 11 }, boxWidth: 18, padding: 10 }, position: "top" },
         tooltip: {
           callbacks: {
             title: items => { const i = items[0].dataIndex; return eps[i].title?.slice(0,50) || labels[i]; },
@@ -1649,8 +1652,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
         }
       },
       scales: {
-        x: { ticks: { color: "#a6b8cf", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
-        y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
+        x: { ticks: { color: "#9d91c5", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        y: { ticks: { color: "#9d91c5" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
   });
@@ -1695,12 +1698,12 @@ function renderFVChart(fv, pkFv) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
       plugins: {
-        legend: { display: multiKw || isAndMode, labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
+        legend: { display: multiKw || isAndMode, labels: { color: "#9d91c5", font: { size: 10 }, boxWidth: 14, padding: 8 }, position: "top" },
         tooltip: { callbacks: { label: item => `${item.dataset.label}: P(≥${item.label}) = ${item.raw.toFixed(1)}%` } },
       },
       scales: {
-        x: { ticks: { color: "#a6b8cf" }, grid: { display: false } },
-        y: { ticks: { color: "#a6b8cf", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
+        x: { ticks: { color: "#9d91c5" }, grid: { display: false } },
+        y: { ticks: { color: "#9d91c5", callback: v => v + "%" }, grid: { display: false }, beginAtZero: true, max: 100 }
       }
     }
   });
@@ -1816,10 +1819,10 @@ async function loadMinutes(episodeId) {
       ]},
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-        plugins: { legend: { labels: { color: "#aaa", font: { size: 10 }, boxWidth: 14 } } },
+        plugins: { legend: { labels: { color: "#9d91c5", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#a6b8cf", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
-          y: { ticks: { color: "#a6b8cf" }, grid: { display: false }, beginAtZero: true, stacked }
+          x: { ticks: { color: "#9d91c5", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          y: { ticks: { color: "#9d91c5" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
     });
