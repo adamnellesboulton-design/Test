@@ -2077,6 +2077,7 @@ function renderContextMatch(matchText, kwStyles = {}, keyword = "") {
 // ── Episode table ─────────────────────────────────────────────
 function renderTable(episodes, kwStyles = {}) {
   const tbody = document.getElementById("ep-tbody");
+  if (!tbody) return;
   const pk = (currentData && currentData.per_keyword) || [];
   const perKeywordEpisodeMaps = pk.map(kw => ({
     keyword: kw.keyword,
