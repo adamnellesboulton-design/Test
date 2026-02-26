@@ -500,12 +500,13 @@ def search_multi_adjacent(
 
         # Scan the raw transcript counting contiguous runs of keyword matches.
         # Each run = 1 mention regardless of how many terms appear in the run.
-        # in_run resets between segments so words across segment boundaries
-        # are not treated as adjacent.
+        # Keep in_run across segment boundaries so transcript chunking does not
+        # split naturally adjacent words (e.g. "Bill" in one segment and
+        # "Clinton" in the next) into two mentions.
         segments = db.get_transcript(eid)
         count = 0
+        in_run = False
         for seg in segments:
-            in_run = False
             tokens = re.findall(r"[a-z]+", seg.get("text", "").lower())
             for token in tokens:
                 if any(is_valid_match(token, t) for t in terms):
@@ -563,9 +564,9 @@ def get_minute_breakdown_multi_adjacent(
     """
     segments = db.get_transcript(episode_id)
     minute_counts: dict[int, int] = {}
+    in_run = False
     for seg in segments:
         minute = int(seg.get("start", 0) // 60)
-        in_run = False
         tokens = re.findall(r"[a-z]+", seg.get("text", "").lower())
         for token in tokens:
             if any(is_valid_match(token, t) for t in terms):
