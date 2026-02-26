@@ -1554,7 +1554,11 @@ async function submitUpload() {
 
   try {
     const r = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await r.json();
+    const data = await parseJsonResponse(r);
+
+    if (!r.ok) {
+      throw new Error(data.error || `Upload failed (${r.status})`);
+    }
 
     let html = "";
     (data.created || []).forEach(ep => {
@@ -1578,6 +1582,19 @@ async function submitUpload() {
     prog.textContent = "Upload failed: " + e.message;
     toast("Upload failed", "error");
     btn.disabled = false;
+  }
+}
+
+async function parseJsonResponse(response) {
+  const raw = await response.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (_err) {
+    const preview = raw.replace(/\s+/g, " ").slice(0, 120);
+    throw new Error(
+      `Server returned non-JSON response (HTTP ${response.status}). ${preview}${raw.length > 120 ? "…" : ""}`
+    );
   }
 }
 
@@ -1865,9 +1882,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
   const rollingSourceCounts = mergedCounts;
 
   const rolling20 = rollingSourceCounts.map((_, i) => {
-    if (i < 19) return null;
-    const window = rollingSourceCounts.slice(i - 19, i + 1);
-    return window.reduce((a, b) => a + b, 0) / 20;
+    const start = Math.max(0, i - 19);
+    const window = rollingSourceCounts.slice(start, i + 1);
+    return window.reduce((a, b) => a + b, 0) / window.length;
   });
 
   const rollingLabel = isAnd
@@ -2101,9 +2118,9 @@ async function loadMinutes(episodeId) {
 
     const rollingWindow = 20;
     const rolling20 = counts.map((_, i) => {
-      if (i < rollingWindow - 1) return null;
-      const window = counts.slice(i - rollingWindow + 1, i + 1);
-      return window.reduce((sum, value) => sum + value, 0) / rollingWindow;
+      const start = Math.max(0, i - rollingWindow + 1);
+      const window = counts.slice(start, i + 1);
+      return window.reduce((sum, value) => sum + value, 0) / window.length;
     });
 
     const lineDatasets = [
