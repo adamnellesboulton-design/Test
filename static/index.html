@@ -1079,16 +1079,6 @@ const KEYWORD_BASE_COLORS = [
   "#59D7D0", // aqua mint
 ];
 
-// First-pass rotation for keyword colors: 5 high-contrast anchors.
-// This guarantees visible contrast for up to 5 keywords before any repeat.
-const KEYWORD_CONTRAST_ROTATION = [
-  "#5BA8FF", // blue
-  "#FF8A5B", // coral
-  "#5CC58E", // green
-  "#FF6FAE", // pink
-  "#E6C15A", // amber
-];
-
 function hexToRgb(hex) {
   const v = hex.replace("#", "");
   if (v.length !== 6) return { r: 230, g: 230, b: 230 };
@@ -1188,10 +1178,10 @@ function getKeywordColor(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
     ? colorOrder
     : KEYWORD_CONTRAST_ROTATION;
   if (typeof index === "number" && index >= 0) {
-    return palette[index % palette.length];
+    return KEYWORD_CONTRAST_ROTATION[index % KEYWORD_CONTRAST_ROTATION.length];
   }
   const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return palette[seed % palette.length];
+  return KEYWORD_CONTRAST_ROTATION[seed % KEYWORD_CONTRAST_ROTATION.length];
 }
 
 function buildKeywordStyle(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
