@@ -1880,6 +1880,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
         borderColor: style.base,
         borderWidth: 1,
         borderRadius: 3,
+        clip: false,
         grouped: false,
         type: "bar",
         order: 2,
@@ -1894,7 +1895,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
       label, data: mergedCounts,
       backgroundColor: mergedCounts.map(c => c > 0 ? style.barBg : "#2a2a2a"),
       borderColor:     mergedCounts.map(c => c > 0 ? style.base : "#2a2a2a"),
-      borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
+      borderWidth: 1, borderRadius: 3, clip: false, type: "bar", order: 2,
     }];
   }
 
@@ -1940,7 +1941,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
         }
       },
       scales: {
-        x: { ticks: { color: "#8a8a8a", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
+        x: { offset: true, ticks: { color: "#8a8a8a", maxRotation: 45, font: { size: 10 }, maxTicksLimit: 25 }, grid: { display: false }, stacked },
         y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
       }
     }
@@ -2126,6 +2127,7 @@ async function loadMinutes(episodeId) {
           borderColor: style.base,
           borderWidth: 1,
           borderRadius: 3,
+          clip: false,
           order: 2,
           stack: stacked ? "kw" : undefined,
         };
@@ -2134,7 +2136,7 @@ async function loadMinutes(episodeId) {
       const label = pk && pk.length === 1 ? pk[0].keyword : "Mentions";
       const style = getStyleForKeyword(label, currentKeywordStyles, 0);
       barDatasets = [{ label, data: counts, backgroundColor: style.barBg, borderColor: style.base,
-                       borderWidth: 1, borderRadius: 3, order: 2 }];
+                       borderWidth: 1, borderRadius: 3, clip: false, order: 2 }];
     }
 
     const rollingWindow = 20;
@@ -2170,7 +2172,7 @@ async function loadMinutes(episodeId) {
         responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
         plugins: { legend: { labels: { color: "#8a8a8a", font: { size: 10 }, boxWidth: 14 } } },
         scales: {
-          x: { ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
+          x: { offset: false, ticks: { color: "#8a8a8a", font: { size: 10 }, maxTicksLimit: 30 }, grid: { display: false }, stacked },
           y: { ticks: { color: "#8a8a8a" }, grid: { display: false }, beginAtZero: true, stacked }
         }
       }
