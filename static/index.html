@@ -1059,18 +1059,20 @@ let currentData   = null;
 let currentKeyword = "";
 let currentKeywordStyles = {};
 
-// Neon palette for keyword-linked visuals.
-const NEON_BASE_COLORS = [
-  "#00f5ff", // cyan
-  "#ff2bd6", // hot magenta
-  "#7bff00", // neon lime
-  "#ff9f1c", // electric orange
-  "#8b5cf6", // violet
-  "#ffe600", // laser yellow
-  "#00ff85", // mint green
-  "#ff4d6d", // neon rose
-  "#39a0ff", // bright blue
-  "#c2ff00", // acid lime
+// Unified but distinct palette for keyword-linked visuals.
+// Colors are intentionally kept in a similar tonal family so the UI feels cohesive,
+// then spread across hue distance so visually-similar chips are not paired together.
+const KEYWORD_BASE_COLORS = [
+  "#5BA8FF", // sky blue
+  "#7E79FF", // periwinkle
+  "#48B7C9", // teal
+  "#A576E8", // soft violet
+  "#5CC58E", // jade
+  "#C07DDC", // orchid
+  "#6FA7D6", // steel blue
+  "#8BC281", // sage
+  "#7698E6", // cool indigo
+  "#61B8A4", // sea green
 ];
 
 function hexToRgb(hex) {
@@ -1129,28 +1131,62 @@ function rgbToHsl(r, g, b) {
   };
 }
 
-function getKeywordColor(keyword, index = 0) {
-  const term = String(keyword || "").toLowerCase();
-  const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) + (index * 17);
-  return NEON_BASE_COLORS[seed % NEON_BASE_COLORS.length];
+function buildKeywordColorOrder(keywords = []) {
+  const available = KEYWORD_BASE_COLORS.map(color => {
+    const { h } = rgbToHsl(...Object.values(hexToRgb(color)));
+    return { color, h };
+  });
+
+  const ordered = [];
+  if (!available.length) return ordered;
+
+  ordered.push(available.shift());
+  while (available.length) {
+    let bestIndex = 0;
+    let bestDistance = -1;
+    available.forEach((entry, idx) => {
+      const minDistance = ordered.reduce((closest, used) => {
+        const hueGap = Math.abs(entry.h - used.h);
+        const circularGap = Math.min(hueGap, 360 - hueGap);
+        return Math.min(closest, circularGap);
+      }, 360);
+      if (minDistance > bestDistance) {
+        bestDistance = minDistance;
+        bestIndex = idx;
+      }
+    });
+    ordered.push(available.splice(bestIndex, 1)[0]);
+  }
+
+  return ordered.map(entry => entry.color);
 }
 
-function buildKeywordStyle(keyword, index = 0) {
-  const base = getKeywordColor(keyword, index);
-  const line = lightenHex(base, 0.25);
+function getKeywordColor(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
+  const term = String(keyword || "").toLowerCase();
+  if (typeof index === "number" && index >= 0) {
+    return colorOrder[index % colorOrder.length];
+  }
+  const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  return colorOrder[seed % colorOrder.length];
+}
+
+function buildKeywordStyle(keyword, index = 0, colorOrder = KEYWORD_BASE_COLORS) {
+  const base = getKeywordColor(keyword, index, colorOrder);
+  const line = lightenHex(base, 0.3);
   return {
     base,
     line,
-    barBg: withAlpha(base, 0.78),
-    hitBg: withAlpha(base, 0.2),
-    glow: withAlpha(base, 0.55),
+    barBg: withAlpha(base, 0.72),
+    hitBg: withAlpha(base, 0.26),
+    glow: withAlpha(base, 0.35),
   };
 }
 
 function buildKeywordStyles(perKeyword = []) {
   const styles = {};
+  const colorOrder = buildKeywordColorOrder(perKeyword.map(kw => kw.keyword));
   (perKeyword || []).forEach((kw, idx) => {
-    styles[kw.keyword.toLowerCase()] = buildKeywordStyle(kw.keyword, idx);
+    styles[kw.keyword.toLowerCase()] = buildKeywordStyle(kw.keyword, idx, colorOrder);
   });
   return styles;
 }
