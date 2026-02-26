@@ -685,17 +685,6 @@ tbody td { padding: 9px 12px; }
 /* ── Per-minute panel ── */
 #minute-panel { display: none; }
 #minute-panel.visible { display: block; }
-
-/* End-user view: hide transcript/per-episode detail sections */
-#stats-row,
-#trend-card,
-#fv-chart-wrap,
-#fv-grid-card,
-#minute-panel,
-#context-panel,
-#episode-history-card {
-  display: none !important;
-}
 #context-panel { display: none; }
 #context-panel.visible { display: block; }
 .ctx-hit {
@@ -896,7 +885,7 @@ tbody td { padding: 9px 12px; }
     <div id="results">
 
       <!-- Stats row -->
-      <div class="stats-row" id="stats-row" aria-hidden="true">
+      <div class="stats-row">
         <div class="stat-card">
           <div class="stat-val" id="stat-total">–</div>
           <div class="stat-label">Total mentions</div>
@@ -921,7 +910,7 @@ tbody td { padding: 9px 12px; }
 
       <!-- Charts grid -->
       <div class="charts-grid">
-        <div class="card user-hidden" id="trend-card" aria-hidden="true">
+        <div class="card">
           <div class="card-title" data-trend-title>Mentions per episode</div>
           <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
         </div>
@@ -939,30 +928,30 @@ tbody td { padding: 9px 12px; }
             </select>
             <span id="fv-model-badge" class="fv-model-badge"></span>
           </div>
-          <div class="chart-wrap user-hidden" id="fv-chart-wrap" aria-hidden="true"><canvas id="fv-chart"></canvas></div>
+          <div class="chart-wrap"><canvas id="fv-chart"></canvas></div>
         </div>
       </div>
 
       <!-- Fair value grid -->
-      <div class="card user-hidden" id="fv-grid-card" aria-hidden="true">
+      <div class="card">
         <div class="card-title" data-fv-grid>Fair value — P(≥ N mentions) in next episode</div>
         <div class="fv-grid" id="fv-grid"></div>
       </div>
 
       <!-- Per-minute panel -->
-      <div class="card user-hidden" id="minute-panel" aria-hidden="true">
+      <div class="card" id="minute-panel">
         <div class="card-title" id="minute-title">Per-minute breakdown</div>
         <div class="chart-wrap" style="height:220px"><canvas id="minute-chart"></canvas></div>
       </div>
 
       <!-- Context / KWIC panel -->
-      <div class="card user-hidden" id="context-panel" aria-hidden="true">
+      <div class="card" id="context-panel">
         <div class="card-title" id="context-title">Transcript mentions</div>
         <div id="context-hits"></div>
       </div>
 
       <!-- Episode table -->
-      <div class="card user-hidden" id="episode-history-card" aria-hidden="true">
+      <div class="card">
         <div class="card-title">Episode history — click a row for per-minute breakdown &amp; transcript hits</div>
         <div class="table-wrap">
           <table id="ep-table">
