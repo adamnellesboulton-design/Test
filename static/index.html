@@ -1582,7 +1582,7 @@ function renderResults(data) {
   // Average pills
 
   const fmtPm = v => (v !== null && v !== undefined) ? `${Number(v).toFixed(3)}/min` : "—";
-  const makePills = (a, apm) => {
+  const makePills = (a, apm, style = null) => {
     const defs = [
       {cls:"ep1",   n:"Last 1",   v: a.last_1,   pm: apm.last_1},
       {cls:"ep5",   n:"Last 5",   v: a.last_5,   pm: apm.last_5},
@@ -1590,10 +1590,16 @@ function renderResults(data) {
       {cls:"ep50",  n:"Last 50",  v: a.last_50,  pm: apm.last_50},
       {cls:"ep100", n:"Last 100", v: a.last_100, pm: apm.last_100},
     ];
+    const pillStyle = style
+      ? ` style="border-color:${style.base};box-shadow:0 0 8px ${style.glow};"`
+      : "";
+    const valueStyle = style
+      ? ` style="color:${style.line};text-shadow:0 0 8px ${style.glow};"`
+      : "";
     return defs.map(p =>
-      `<div class="avg-pill ${p.cls}">
+      `<div class="avg-pill ${p.cls}"${pillStyle}>
          <span class="n">${p.n}</span>
-         <span class="v">${fmt(p.v)}</span>
+         <span class="v"${valueStyle}>${fmt(p.v)}</span>
          <span class="pm">${fmtPm(p.pm)}</span>
        </div>`
     ).join("");
@@ -1612,14 +1618,17 @@ function renderResults(data) {
          const style = getStyleForKeyword(kw.keyword, currentKeywordStyles);
          return `<div class="avg-kw-block">
            <div class="avg-kw-label" style="color:${style.line}; text-shadow:0 0 8px ${style.glow};">${escHtml(kw.keyword)}</div>
-           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
+           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min, style)}</div>
          </div>`;
       })()
     ).join("");
   } else {
     // Single keyword or AND mode: one row (labelled for AND)
     const label = isAnd ? `<div class="avg-row-label">Co-occurrence average</div>` : "";
-    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min)}</div>`;
+    const singleStyle = isAnd
+      ? { base: "#22d3ee", line: "#9cf7ff", glow: withAlpha("#22d3ee", 0.55) }
+      : getStyleForKeyword((data.per_keyword && data.per_keyword[0] ? data.per_keyword[0].keyword : currentKeyword || "Mentions"), currentKeywordStyles, 0);
+    avgsHtml = `${label}<div class="avgs-row">${makePills(avgs, data.averages_per_min, singleStyle)}</div>`;
   }
   document.getElementById("avgs-container").innerHTML = avgsHtml;
 
