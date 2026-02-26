@@ -64,28 +64,35 @@ header {
 .mode-toggle {
   display: none;          /* hidden by default; JS sets display:flex */
   align-items: center;
-  border: 1px solid var(--border);
+  border: 2px solid #3f3f50;
   border-radius: var(--radius);
   overflow: hidden;
   flex-shrink: 0;
   font-size: .95rem;
-  font-weight: 400;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(155, 132, 255, 0.2);
 }
 .mode-toggle button {
-  padding: 5px 10px;
-  background: var(--surface);
-  color: var(--muted);
+  padding: 6px 12px;
+  background: #181826;
+  color: #9da3bd;
   border: none;
   cursor: pointer;
-  transition: background .15s, color .15s;
+  transition: background .15s, color .15s, box-shadow .15s, transform .1s;
   line-height: 1;
+  letter-spacing: .03em;
+}
+.mode-toggle button:hover {
+  color: #d7dcff;
 }
 .mode-toggle button.active {
-  background: var(--accent);
-  color: var(--text);
+  background: linear-gradient(180deg, rgba(186,168,255,0.32), rgba(108,238,255,0.18));
+  color: #f8f9ff;
+  box-shadow: inset 0 0 0 1px rgba(206, 235, 255, 0.6), 0 0 14px rgba(151, 214, 255, 0.35);
+  text-shadow: 0 0 8px rgba(194, 224, 255, 0.6);
 }
 .mode-toggle button:first-child {
-  border-right: 1px solid var(--border);
+  border-right: 1px solid #3f3f50;
 }
 .tag-input-wrap {
   flex: 1;
@@ -657,13 +664,14 @@ tbody td { padding: 9px 12px; }
   flex-shrink: 0;
 }
 .ctx-text { color: var(--text); }
-.ctx-match {
-  background: rgba(230,230,230,.2);
-  color: var(--text);
-  border-radius: 0;
+.ctx-match,
+.kw-highlight {
+  border-radius: 2px;
   padding: 0 3px;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
 }
+.ep-title { line-height: 1.35; }
 
 /* ── Empty / loading states ── */
 .empty {
@@ -1004,9 +1012,73 @@ let allEpisodes   = [];   // [{id, title, episode_date, ...}]
 let selectedIds   = new Set();  // episode IDs checked in sidebar
 let currentData   = null;
 let currentKeyword = "";
+let currentKeywordStyles = {};
 
-// Colour palette for multi-keyword charts (stacked bars)
-const KW_COLORS = ["#e6e6e6", "#8a8a8a", "#2a2a2a", "#111111", "#e6e6e6"];
+// Neon palette for keyword-linked visuals.
+const NEON_BASE_COLORS = [
+  "#b388ff", // neon lavender purple
+  "#38d6ff", // neon sea blue
+  "#6ef7c8", // neon mint green
+  "#b13a5b", // neon burgundy
+  "#c7a2ff", // soft violet
+  "#59e3ff", // soft aqua
+  "#86ffd7", // bright mint
+  "#cf4f70", // bright burgundy rose
+];
+
+function hexToRgb(hex) {
+  const v = hex.replace("#", "");
+  if (v.length !== 6) return { r: 230, g: 230, b: 230 };
+  return {
+    r: parseInt(v.slice(0, 2), 16),
+    g: parseInt(v.slice(2, 4), 16),
+    b: parseInt(v.slice(4, 6), 16),
+  };
+}
+
+function withAlpha(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function lightenHex(hex, amount = 0.2) {
+  const { r, g, b } = hexToRgb(hex);
+  const mix = c => Math.max(0, Math.min(255, Math.round(c + (255 - c) * amount)));
+  const toHex = c => c.toString(16).padStart(2, "0");
+  return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+}
+
+function getKeywordColor(keyword, index = 0) {
+  const term = String(keyword || "").toLowerCase();
+  const seed = [...term].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) + (index * 17);
+  return NEON_BASE_COLORS[seed % NEON_BASE_COLORS.length];
+}
+
+function buildKeywordStyle(keyword, index = 0) {
+  const base = getKeywordColor(keyword, index);
+  const line = lightenHex(base, 0.25);
+  return {
+    base,
+    line,
+    barBg: withAlpha(base, 0.78),
+    hitBg: withAlpha(base, 0.2),
+    glow: withAlpha(base, 0.55),
+  };
+}
+
+function buildKeywordStyles(perKeyword = []) {
+  const styles = {};
+  (perKeyword || []).forEach((kw, idx) => {
+    styles[kw.keyword.toLowerCase()] = buildKeywordStyle(kw.keyword, idx);
+  });
+  return styles;
+}
+
+function getStyleForKeyword(keyword, kwStyles = {}, fallbackIndex = 0) {
+  const k = String(keyword || "").toLowerCase();
+  return kwStyles[k] || buildKeywordStyle(keyword, fallbackIndex);
+}
+
 Chart.defaults.font.family = "'Press Start 2P', 'VT323', monospace";
 Chart.defaults.color = "#8a8a8a";
 let trendChart    = null;
@@ -1380,7 +1452,10 @@ function addKwTag(raw) {
     const chip = document.createElement("span");
     chip.className = "kw-tag";
     chip.dataset.kw = kw;
-    chip.innerHTML = `${escHtml(kw)} <button aria-label="remove">×</button>`;
+    const kwStyle = buildKeywordStyle(kw, existing().length);
+    chip.style.borderColor = kwStyle.base;
+    chip.style.boxShadow = `0 0 10px ${kwStyle.glow}`;
+    chip.innerHTML = `<span style="color:${kwStyle.line}">${escHtml(kw)}</span> <button aria-label="remove">×</button>`;
     chip.querySelector("button").addEventListener("click", () => {
       chip.remove();
       updateSearchPlaceholder();
@@ -1452,6 +1527,7 @@ function renderResults(data) {
 
   const isAnd = data.mode === "and" && (data.per_keyword || []).length > 1;
   const isMultiOr = data.mode !== "and" && (data.per_keyword || []).length > 1;
+  currentKeywordStyles = buildKeywordStyles(data.per_keyword || []);
 
   // In multi-keyword OR mode, aggregate cards/pills should use the same
   // adjacent-deduped merged count shown in the episode table.
@@ -1493,10 +1569,13 @@ function renderResults(data) {
          <div class="avgs-row">${makePills(displayAverages, displayAveragesPerMin)}</div>
        </div>`;
     avgsHtml = combinedBlock + (data.per_keyword || []).map(kw =>
-      `<div class="avg-kw-block">
-         <div class="avg-kw-label">${escHtml(kw.keyword)}</div>
-         <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
-       </div>`
+      (() => {
+         const style = getStyleForKeyword(kw.keyword, currentKeywordStyles);
+         return `<div class="avg-kw-block">
+           <div class="avg-kw-label" style="color:${style.line}; text-shadow:0 0 8px ${style.glow};">${escHtml(kw.keyword)}</div>
+           <div class="avgs-row">${makePills(kw.averages, kw.averages_per_min)}</div>
+         </div>`;
+      })()
     ).join("");
   } else {
     // Single keyword or AND mode: one row (labelled for AND)
@@ -1519,7 +1598,7 @@ function renderResults(data) {
     ? new Set(data.episodes.filter(e => e.count > 0).map(e => e.episode_id))
     : null;
 
-  renderTrendChart(eps, data.per_keyword, isAnd, coOccurIds);
+  renderTrendChart(eps, data.per_keyword, isAnd, coOccurIds, currentKeywordStyles);
 
   const modelLabel = {
     "poisson":       "Poisson",
@@ -1542,16 +1621,16 @@ function renderResults(data) {
 
   // In AND mode show the single merged FV bar (co-occurrence FV);
   // in OR mode show per-keyword grouped bars.
-  renderFVChart(fv, isAnd ? null : data.per_keyword_fv);
+  renderFVChart(fv, isAnd ? null : data.per_keyword_fv, currentKeywordStyles);
   renderFVGrid(fv);
-  renderTable(eps);
+  renderTable(eps, currentKeywordStyles);
 
   document.getElementById("minute-panel").classList.remove("visible");
   if (minuteChart) { minuteChart.destroy(); minuteChart = null; }
 }
 
 // ── Trend chart ──────────────────────────────────────────────
-function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
+function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}) {
   const ctx = document.getElementById("trend-chart").getContext("2d");
   if (trendChart) trendChart.destroy();
 
@@ -1567,7 +1646,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
   let barDatasets;
   if (isMultiKeyword) {
     barDatasets = perKeyword.map((kw, i) => {
-      const col = KW_COLORS[i % KW_COLORS.length];
+      const style = getStyleForKeyword(kw.keyword, kwStyles, i);
       const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
       const counts = eps.map(e =>
         (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0)
@@ -1575,8 +1654,8 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       return {
         label: kw.keyword,
         data: counts,
-        backgroundColor: col + "cc",
-        borderColor: col,
+        backgroundColor: style.barBg,
+        borderColor: style.base,
         borderWidth: 1,
         borderRadius: 3,
         grouped: false,
@@ -1586,12 +1665,13 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
       };
     });
   } else {
-    const col = KW_COLORS[0];
-    const label = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
+    const singleKeyword = perKeyword && perKeyword.length === 1 ? perKeyword[0].keyword : "Mentions";
+    const style = getStyleForKeyword(singleKeyword, kwStyles, 0);
+    const label = singleKeyword;
     barDatasets = [{
       label, data: mergedCounts,
-      backgroundColor: mergedCounts.map(c => c > 0 ? col + "cc" : "#2a2a2a"),
-      borderColor:     mergedCounts.map(c => c > 0 ? col       : "#2a2a2a"),
+      backgroundColor: mergedCounts.map(c => c > 0 ? style.barBg : "#2a2a2a"),
+      borderColor:     mergedCounts.map(c => c > 0 ? style.base : "#2a2a2a"),
       borderWidth: 1, borderRadius: 3, type: "bar", order: 2,
     }];
   }
@@ -1606,20 +1686,41 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
     return window.reduce((a, b) => a + b, 0) / window.length;
   });
 
-  const lineDatasets = [
-    {
-      label: "Rolling avg (20 eps)",
-      data: rolling20,
-      type: "line",
-      borderColor: "#e6e6e6",
-      backgroundColor: "#e6e6e6",
-      borderWidth: 2,
-      pointRadius: 0,
-      tension: 0.25,
-      // Keep the rolling-average line above bars so it is always visible.
-      order: 10,
-    }
-  ];
+  const lineDatasets = isMultiKeyword
+    ? perKeyword.map((kw, i) => {
+        const style = getStyleForKeyword(kw.keyword, kwStyles, i);
+        const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
+        const counts = eps.map(e => (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0));
+        const rolling = counts.map((_, idx) => {
+          const start = Math.max(0, idx - 19);
+          const window = counts.slice(start, idx + 1);
+          return window.reduce((a, b) => a + b, 0) / window.length;
+        });
+        return {
+          label: `${kw.keyword} rolling`,
+          data: rolling,
+          type: "line",
+          borderColor: style.line,
+          backgroundColor: style.line,
+          borderWidth: 1.8,
+          borderDash: [5, 3],
+          pointRadius: 0,
+          tension: 0.24,
+          order: 10,
+        };
+      })
+    : [{
+        label: "Rolling avg (20 eps)",
+        data: rolling20,
+        type: "line",
+        borderColor: "#9cf7ff",
+        backgroundColor: "#9cf7ff",
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.25,
+        // Keep the rolling-average line above bars so it is always visible.
+        order: 10,
+      }];
 
 
   trendChart = new Chart(ctx, {
@@ -1645,7 +1746,7 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds) {
 }
 
 // ── Fair-value chart ─────────────────────────────────────────
-function renderFVChart(fv, pkFv) {
+function renderFVChart(fv, pkFv, kwStyles = {}) {
   const ctx = document.getElementById("fv-chart").getContext("2d");
   if (fvChart) fvChart.destroy();
 
@@ -1656,24 +1757,24 @@ function renderFVChart(fv, pkFv) {
   // OR multi-kw mode: one grouped bar per keyword.
   // Single keyword: single bar.
   const isAndMode = pkFv === null;
-  const AND_COLOR = "#e6e6e6";
+  const AND_STYLE = { base: "#22d3ee", barBg: withAlpha("#22d3ee", 0.78) };
 
   const datasets = multiKw
     ? pkFv.map((kw, i) => {
-        const col = KW_COLORS[i % KW_COLORS.length];
+        const style = getStyleForKeyword(kw.keyword, kwStyles, i);
         return {
           label: kw.keyword,
           data: kw.buckets.map(b => b.pct),
-          backgroundColor: col + "cc",
-          borderColor: col,
+          backgroundColor: style.barBg,
+          borderColor: style.base,
           borderWidth: 1, borderRadius: 3,
         };
       })
     : [{
         label: isAndMode ? "co-occurrence" : (pkFv && pkFv.length === 1 ? pkFv[0].keyword : "P(≥ N) %"),
         data: fv.buckets.map(b => b.pct),
-        backgroundColor: (isAndMode ? AND_COLOR : KW_COLORS[0]) + "cc",
-        borderColor: isAndMode ? AND_COLOR : KW_COLORS[0],
+        backgroundColor: isAndMode ? AND_STYLE.barBg : getStyleForKeyword(pkFv && pkFv[0] ? pkFv[0].keyword : "Mentions", kwStyles, 0).barBg,
+        borderColor: isAndMode ? AND_STYLE.base : getStyleForKeyword(pkFv && pkFv[0] ? pkFv[0].keyword : "Mentions", kwStyles, 0).base,
         borderWidth: 1, borderRadius: 4,
       }];
 
@@ -1707,8 +1808,29 @@ function renderFVGrid(fv) {
   }).join("");
 }
 
+function escRegExp(str) {
+  return String(str).replace(/[.*+?^${}()|]/g, "$&");
+}
+
+function highlightKeywords(text, kwStyles = {}) {
+  const terms = Object.keys(kwStyles).filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!terms.length) return escHtml(text);
+
+  const pattern = new RegExp("\\b(" + terms.map(escRegExp).join("|") + ")\\b", "gi");
+  const safe = escHtml(text);
+  return safe.replace(pattern, (matched) => {
+    const style = getStyleForKeyword(matched, kwStyles);
+    return `<span class="kw-highlight" style="background:${style.hitBg};color:${style.line};box-shadow:0 0 10px ${style.glow};">${matched}</span>`;
+  });
+}
+
+function renderContextMatch(matchText, kwStyles = {}, keyword = "") {
+  const style = getStyleForKeyword(keyword || matchText, kwStyles);
+  return `<span class="ctx-match" style="background:${style.hitBg};color:${style.line};box-shadow:0 0 10px ${style.glow};">${escHtml(matchText)}</span>`;
+}
+
 // ── Episode table ─────────────────────────────────────────────
-function renderTable(episodes) {
+function renderTable(episodes, kwStyles = {}) {
   const tbody = document.getElementById("ep-tbody");
   tbody.innerHTML = episodes.map(ep => {
     const num   = ep.episode_number ? `#${ep.episode_number}` : `ID${ep.episode_id}`;
@@ -1722,7 +1844,7 @@ function renderTable(episodes) {
       <td>${ep.episode_date || "—"}</td>
       <td>${badge}</td>
       <td>${pm}</td>
-      <td>${escHtml(title)}</td>
+      <td class="ep-title">${highlightKeywords(title, kwStyles)}</td>
     </tr>`;
   }).join("");
 
@@ -1738,7 +1860,7 @@ function renderTable(episodes) {
 // ── Per-minute breakdown ──────────────────────────────────────
 async function loadMinutes(episodeId) {
   if (!currentKeyword) return;
-  loadContext(episodeId);
+  loadContext(episodeId, currentKeywordStyles);
   try {
     const mode = (currentData && currentData.mode) || "or";
     const r = await fetch(`/api/minutes?keyword=${encodeURIComponent(currentKeyword)}&episode_id=${episodeId}&mode=${mode}`);
@@ -1771,13 +1893,13 @@ async function loadMinutes(episodeId) {
     let barDatasets;
     if (isMultiKeyword) {
       barDatasets = pk.map((kw, i) => {
-        const col  = KW_COLORS[i % KW_COLORS.length];
+        const style = getStyleForKeyword(kw.keyword, currentKeywordStyles, i);
         const data = d.minutes.map(m => kw.minutes[m.minute] ?? 0);
         return {
           label: kw.keyword,
           data,
-          backgroundColor: col + "cc",
-          borderColor: col,
+          backgroundColor: style.barBg,
+          borderColor: style.base,
           borderWidth: 1,
           borderRadius: 3,
           order: 2,
@@ -1785,9 +1907,9 @@ async function loadMinutes(episodeId) {
         };
       });
     } else {
-      const col   = KW_COLORS[0];
       const label = pk && pk.length === 1 ? pk[0].keyword : "Mentions";
-      barDatasets = [{ label, data: counts, backgroundColor: col + "cc", borderColor: col,
+      const style = getStyleForKeyword(label, currentKeywordStyles, 0);
+      barDatasets = [{ label, data: counts, backgroundColor: style.barBg, borderColor: style.base,
                        borderWidth: 1, borderRadius: 3, order: 2 }];
     }
 
@@ -1803,15 +1925,15 @@ async function loadMinutes(episodeId) {
         label: "20m rolling avg",
         data: rolling20,
         type: "line",
-        borderColor: "#8a8a8a",
-        backgroundColor: "#8a8a8a",
+        borderColor: "#b7f9ff",
+        backgroundColor: "#b7f9ff",
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.25,
         order: 1,
       },
       { label: `Avg ${mean.toFixed(2)}/min`, data: Array(counts.length).fill(mean),
-        type: "line", borderColor: "#e6e6e6", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
+        type: "line", borderColor: "#d9fff6", borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, order: 1 }
     ];
 
     minuteChart = new Chart(ctx, {
@@ -1837,7 +1959,7 @@ async function loadMinutes(episodeId) {
 }
 
 // ── Transcript context (KWIC) ─────────────────────────────────
-async function loadContext(episodeId) {
+async function loadContext(episodeId, kwStyles = {}) {
   const panel = document.getElementById("context-panel");
   const hitsEl = document.getElementById("context-hits");
   const titleEl = document.getElementById("context-title");
@@ -1854,7 +1976,7 @@ async function loadContext(episodeId) {
       const ss = String(h.second).padStart(2, "0");
       return `<div class="ctx-hit">
         <span class="ctx-ts">${mm}:${ss}</span>
-        <span class="ctx-text">${escHtml(h.prefix)}<span class="ctx-match">${escHtml(h.match)}</span>${escHtml(h.suffix)}</span>
+        <span class="ctx-text">${escHtml(h.prefix)}${renderContextMatch(h.match, kwStyles, h.keyword)}${escHtml(h.suffix)}</span>
       </div>`;
     }).join("");
     panel.classList.add("visible");

@@ -676,6 +676,7 @@ def get_context_multi_adjacent(
                         "prefix": prefix,
                         "match": m.group(),
                         "suffix": suffix,
+                        "keyword": next((t for t in norm_terms if is_valid_match(token, t)), norm_terms[0]),
                     })
                 in_run = True
             else:
@@ -724,6 +725,7 @@ def get_context(
                 "prefix": prefix,
                 "match":  m.group(),
                 "suffix": suffix,
+                "keyword": term,
             })
 
     return hits
