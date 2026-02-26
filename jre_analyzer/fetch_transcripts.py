@@ -28,10 +28,14 @@ _TIMESTAMP_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The standard JRE intro phrase.  Any segment whose text contains this
-# (case-insensitive) — and every segment before it — is discarded so that
-# pre-show boilerplate never pollutes keyword counts.
-_INTRO_MARKER = "train by day, joe rogan podcast by night, all day"
+# The standard JRE intro phrase can be transcribed with minor variants
+# (e.g. "trained" instead of "train", missing punctuation, etc).
+# Any segment matching this marker — and every segment before it — is
+# discarded so that pre-show boilerplate never pollutes keyword counts.
+_INTRO_MARKER_RE = re.compile(
+    r"\btrain(?:ed)?\s+by\s+day\b.*\bjoe\s+rogan\s+podcast\s+by\s+night\b.*\ball\s+day\b",
+    re.IGNORECASE,
+)
 
 _DATE_RE = re.compile(
     r"episode\s+date\s*:\s*([a-z]+)\s+(\d{1,2}),?\s*(\d{4})",
@@ -72,7 +76,7 @@ def _strip_intro(segments: list[dict]) -> list[dict]:
     If the phrase is not found the segments are returned unchanged.
     """
     for i, seg in enumerate(segments):
-        if _INTRO_MARKER in seg.get("text", "").lower():
+        if _INTRO_MARKER_RE.search(seg.get("text", "")):
             return segments[i + 1:]
     return segments
 
