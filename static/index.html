@@ -1882,9 +1882,9 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
   const rollingSourceCounts = mergedCounts;
 
   const rolling20 = rollingSourceCounts.map((_, i) => {
-    if (i < 19) return null;
-    const window = rollingSourceCounts.slice(i - 19, i + 1);
-    return window.reduce((a, b) => a + b, 0) / 20;
+    const start = Math.max(0, i - 19);
+    const window = rollingSourceCounts.slice(start, i + 1);
+    return window.reduce((a, b) => a + b, 0) / window.length;
   });
 
   const rollingLabel = isAnd
@@ -2118,9 +2118,9 @@ async function loadMinutes(episodeId) {
 
     const rollingWindow = 20;
     const rolling20 = counts.map((_, i) => {
-      if (i < rollingWindow - 1) return null;
-      const window = counts.slice(i - rollingWindow + 1, i + 1);
-      return window.reduce((sum, value) => sum + value, 0) / rollingWindow;
+      const start = Math.max(0, i - rollingWindow + 1);
+      const window = counts.slice(start, i + 1);
+      return window.reduce((sum, value) => sum + value, 0) / window.length;
     });
 
     const lineDatasets = [
