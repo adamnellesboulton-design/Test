@@ -55,6 +55,16 @@ _FALSE_COMPOUNDS: frozenset[tuple[str, str]] = frozenset([
     ("functionality", "fun"), ("functioning", "fun"),
     ("fund", "fun"), ("funds", "fun"),
     ("funded", "fun"), ("funding", "fun"),
+
+    # "fun" should not match unrelated "funnel-*" words.
+    ("funnel", "fun"), ("funnels", "fun"),
+    ("funneled", "fun"), ("funneling", "fun"),
+    ("funnelled", "fun"), ("funnelling", "fun"),
+
+    # "fun" should not match unrelated "fundrais-*" words.
+    ("fundraise", "fun"), ("fundraises", "fun"),
+    ("fundraised", "fun"), ("fundraising", "fun"),
+    ("fundraiser", "fun"), ("fundraisers", "fun"),
 ])
 
 _DERIVATIONAL_SUFFIXES: frozenset[str] = frozenset([
