@@ -1723,10 +1723,12 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
   // (e.g. "Bill Clinton") are counted once in calculations.
   const rollingSourceCounts = mergedCounts;
 
+  const rollingWindow = 20;
   const rolling20 = rollingSourceCounts.map((_, i) => {
-    const start = Math.max(0, i - 19);
+    if (i < rollingWindow - 1) return null;
+    const start = i - rollingWindow + 1;
     const window = rollingSourceCounts.slice(start, i + 1);
-    return window.reduce((a, b) => a + b, 0) / window.length;
+    return window.reduce((a, b) => a + b, 0) / rollingWindow;
   });
 
   const lineDatasets = isMultiKeyword
@@ -1735,9 +1737,10 @@ function renderTrendChart(episodes, perKeyword, isAnd, coOccurIds, kwStyles = {}
         const idxMap = Object.fromEntries(kw.episodes.map(e => [e.episode_id, e.count]));
         const counts = eps.map(e => (isAnd && coOccurIds && !coOccurIds.has(e.episode_id)) ? 0 : (idxMap[e.episode_id] ?? 0));
         const rolling = counts.map((_, idx) => {
-          const start = Math.max(0, idx - 19);
+          if (idx < rollingWindow - 1) return null;
+          const start = idx - rollingWindow + 1;
           const window = counts.slice(start, idx + 1);
-          return window.reduce((a, b) => a + b, 0) / window.length;
+          return window.reduce((a, b) => a + b, 0) / rollingWindow;
         });
         return {
           label: `${kw.keyword} rolling`,
@@ -1974,9 +1977,10 @@ async function loadMinutes(episodeId) {
 
     const rollingWindow = 20;
     const rolling20 = counts.map((_, i) => {
-      const start = Math.max(0, i - rollingWindow + 1);
+      if (i < rollingWindow - 1) return null;
+      const start = i - rollingWindow + 1;
       const window = counts.slice(start, i + 1);
-      return window.reduce((sum, value) => sum + value, 0) / window.length;
+      return window.reduce((sum, value) => sum + value, 0) / rollingWindow;
     });
 
     const lineDatasets = [
